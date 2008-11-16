@@ -34,6 +34,8 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	*/
 	public function action_init()
 	{
+				$this->smug = new phpSmug("APIKey={$this->APIKey}", "AppName={$this->info->name}/{$this->info->version}", "OAuthSecret={$this->OAuthSecret}");
+
 	}
 
 	/**
@@ -59,141 +61,72 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	*/
 	public function silo_dir($path)
 	{
-		$flickr = new Flickr();
-		$results = array();
-		$size = Options::get('flickrsilo__flickr_size');
+		$token = Options::get('smugmugsilo__token_' . User::identify()->id);
+		$timeout = Options::get('smugmugsilo__cache_timeout_' . User::identify()->id);
 
+		$this->smug->enableCache("type=fs", "cache_dir=". HABARI_PATH . '/user/cache/', $timeout);
+		$token = unserialize($token);
+		$this->smug->setToken("id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}");
+		$results = array();
+		$size = Options::get('smugmugsilo__image_size_' . User::identify()->id);
 		$section = strtok($path, '/');
 		switch($section) {
-			case 'photos':
-				$xml = $flickr->photosSearch();
-				foreach($xml->photos->photo as $photo) {
-
-					$props = array();
-					foreach($photo->attributes() as $name => $value) {
-						$props[$name] = (string)$value;
-					}
-					$props['url'] = "http://farm{$photo['farm']}.static.flickr.com/{$photo['server']}/{$photo['id']}_{$photo['secret']}$size.jpg";
-					$props['thumbnail_url'] = "http://farm{$photo['farm']}.static.flickr.com/{$photo['server']}/{$photo['id']}_{$photo['secret']}_m.jpg";
-					$props['flickr_url'] = "http://www.flickr.com/photos/{$_SESSION['nsid']}/{$photo['id']}";
-					$props['filetype'] = 'flickr';
-
+			case 'categories':
+				$categories = $this->smug->categories_get();
+				foreach($categories as $category) {
 					$results[] = new MediaAsset(
-						self::SILO_NAME . '/photos/' . $photo['id'],
-						false,
-						$props
+						self::SILO_NAME . '/categories/' . (string)$category['Name'],
+						true,
+						array('title' => (string)$category['Name'])
 					);
 				}
 				break;
-			case 'videos':
-				$xml = $flickr->videoSearch();
-				foreach($xml->photos->photo as $photo) {
-
+			case 'galleries':
+				$selected_gallery = strtok('/');
+				$galmeta = explode('_', $selected_gallery);
+				if ($selected_gallery) {
 					$props = array();
-					foreach($photo->attributes() as $name => $value) {
-						$props[$name] = (string)$value;
-					}
-					$props['url'] = "http://farm{$photo['farm']}.static.flickr.com/{$photo['server']}/{$photo['id']}_{$photo['secret']}$size.jpg";
-					$props['thumbnail_url'] = "http://farm{$photo['farm']}.static.flickr.com/{$photo['server']}/{$photo['id']}_{$photo['secret']}_m.jpg";
-					$props['flickr_url'] = "http://www.flickr.com/photos/{$_SESSION['nsid']}/{$photo['id']}";
-					$props['filetype'] = 'flickrvideo';
-
-					$results[] = new MediaAsset(
-						self::SILO_NAME . '/photos/' . $photo['id'],
-						false,
-						$props
-					);
-				}
-				break;
-			case 'tags':
-				$selected_tag = strtok('/');
-				if($selected_tag) {
-					$xml = $flickr->photosSearch(array('tags'=>$selected_tag));
-					foreach($xml->photos->photo as $photo) {
-
-						$props = array();
-						foreach($photo->attributes() as $name => $value) {
-							$props[$name] = (string)$value;
+					$photos = $this->smug->images_get("AlbumID={$galmeta[0]}", "AlbumKey={$galmeta[1]}", "Extras=Caption,AlbumURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL"); // Use options to select specific info
+					foreach($photos['Images'] as $photo) {
+						foreach($photo as $name => $value) {
+								$props[$name] = (string)$value;
+								$props['filetype'] = 'smugmug';
+								if ($name == "Caption") {
+									$val = nl2br($value);
+									$val = explode('<br />', $val);
+									$props['Title'] = $this->truncate($val[0]);
+								}
 						}
-						$props['url'] = "http://farm{$photo['farm']}.static.flickr.com/{$photo['server']}/{$photo['id']}_{$photo['secret']}.jpg";
-						$props['thumbnail_url'] = "http://farm{$photo['farm']}.static.flickr.com/{$photo['server']}/{$photo['id']}_{$photo['secret']}_m.jpg";
-						$props['flickr_url'] = "http://www.flickr.com/photos/{$_SESSION['nsid']}/{$photo['id']}";
-						$props['filetype'] = 'flickr';
-
+						
 						$results[] = new MediaAsset(
 							self::SILO_NAME . '/photos/' . $photo['id'],
 							false,
 							$props
 						);
 					}
-				}
-				else {
-					$xml = $flickr->tagsGetListUser($_SESSION['nsid']);
-					foreach($xml->who->tags->tag as $tag) {
+				} else {
+					$galleries = $this->smug->albums_get();
+					foreach($galleries as $gallery) {
 						$results[] = new MediaAsset(
-							self::SILO_NAME . '/tags/' . (string)$tag,
+							self::SILO_NAME . '/galleries/' . (string)$gallery['id'].'_'.$gallery['Key'],
 							true,
-							array('title' => (string)$tag)
+							array('title' => (string)$gallery['Title'])
 						);
 					}
+						
 				}
 				break;
-			case 'sets':
-				$selected_set = strtok('/');
-				if($selected_set) {
-					$xml = $flickr->photosetsGetPhotos($selected_set);
-					foreach($xml->photoset->photo as $photo) {
-
-						$props = array();
-						foreach($photo->attributes() as $name => $value) {
-							$props[$name] = (string)$value;
-						}
-						$props['url'] = "http://farm{$photo['farm']}.static.flickr.com/{$photo['server']}/{$photo['id']}_{$photo['secret']}.jpg";
-						$props['thumbnail_url'] = "http://farm{$photo['farm']}.static.flickr.com/{$photo['server']}/{$photo['id']}_{$photo['secret']}_m.jpg";
-						$props['flickr_url'] = "http://www.flickr.com/photos/{$_SESSION['nsid']}/{$photo['id']}";
-						$props['filetype'] = 'flickr';
-
-						$results[] = new MediaAsset(
-							self::SILO_NAME . '/photos/' . $photo['id'],
-							false,
-							$props
-						);
-					}
-				}
-				else {
-					$xml = $flickr->photosetsGetList($_SESSION['nsid']);
-					foreach($xml->photosets->photoset as $set) {
-						$results[] = new MediaAsset(
-							self::SILO_NAME . '/sets/' . (string)$set['id'],
-							true,
-							array('title' => (string)$set->title)
-						);
-					}
-				}
-				break;
-
-
 			case '':
 				$results[] = new MediaAsset(
-					self::SILO_NAME . '/photos',
+					self::SILO_NAME . '/galleries',
 					true,
-					array('title' => 'Photos')
+					array('title' => 'Galleries')
 				);
 				$results[] = new MediaAsset(
-					self::SILO_NAME . '/videos',
+					self::SILO_NAME . '/categories',
 					true,
-					array('title' => 'Videos')
-				);
-				$results[] = new MediaAsset(
-					self::SILO_NAME . '/tags',
-					true,
-					array('title' => 'Tags')
-				);
-				$results[] = new MediaAsset(
-					self::SILO_NAME . '/sets',
-					true,
-					array('title' => 'Sets')
-				);
+					array('title' => 'Categories')
+				);				
 				break;
 		}
 		return $results;
@@ -219,6 +152,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	*/
 	public function silo_url($path, $qualities = null)
 	{
+		/*
 		$photo = false;
 		if(preg_match('%^photos/(.+)$%', $path, $matches)) {
 			$id = $matches[1];
@@ -230,7 +164,17 @@ class SmugMugSilo extends Plugin implements MediaSilo
 			$size = '_m';
 		}
 		$url = "http://farm{$photo['farm']}.static.flickr.com/{$photo['server']}/{$photo['id']}_{$photo['secret']}{$size}.jpg";
-		return $url;
+		http://colinseymour.smugmug.com/photos/274253148_sX8An-L-2.jpg
+		*/
+		$photo = false;
+		if(preg_match('%^photos/(.+)$%', $path, $matches)) {
+			$id = $matches[1];
+			//$photo = self::$cache[$id];
+		}
+		$url = "http://colinseymour.smugmug.com/photos/{$photo['id']}_{$photo['Key']}-{$size}.jpg";
+		//return $url;
+		return $id;
+		
 	}
 
 	/**
@@ -290,6 +234,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	*/
 	public function silo_contents()
 	{
+		/* No idea what this shows, so not showing it :-)
 		$flickr = new Flickr();
 		$token = Options::get('flickr_token_' . User::identify()->id);
 		$result = $flickr->call('flickr.auth.checkToken',
@@ -300,7 +245,9 @@ class SmugMugSilo extends Plugin implements MediaSilo
 			$url = $flickr->getPhotoURL($photo);
 			echo '<img src="' . $url . '" width="150px" alt="' . ( isset( $photo['title'] ) ? $photo['title'] : _t('This photo has no title') ) . '">';
 		}
+		*/
 	}
+		
 
 	/**
 	* Add actions to the plugin page for this plugin
@@ -316,11 +263,11 @@ class SmugMugSilo extends Plugin implements MediaSilo
 			$phpSmug_ok = $this->is_auth();
 
 			if($phpSmug_ok){
+				$actions[] = _t('Configure');
 				$actions[] = _t('De-Authorize');
 			} else {
 				$actions[] = _t('Authorize');
 			}
-			$actions[] = _t('Configure');
 		}
 
 		return $actions;
@@ -340,36 +287,43 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					if($this->is_auth()){
 						$deauth_url = URL::get('admin', array('page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'De-Authorize')) . '#plugin_options';
 						echo "<p>You have already successfully authorized Habari to access your SmugMug account.</p>";
-						echo "<p>Do you want to <a href=\"\">revoke authorization</a>?</p>";
+						echo "<p>Do you want to <a href=\"{$deauth_url}\">revoke authorization</a>?</p>";
 					} else {
-						
-						$smug = new phpSmug("APIKey={$this->APIKey}", "AppName=SmugMug Silo For Habari/0.1", "OAuthSecret={$this->OAuthSecret}");
-						
-						$reqToken = $smug->auth_getRequestToken();
+						$reqToken = $this->smug->auth_getRequestToken();
 						$_SESSION['SmugGalReqToken'] = serialize($reqToken);
 						
 						$confirm_url = URL::get('admin', array('page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'confirm')) . '#plugin_options';
 						echo "<form><p>"._t('To use this plugin, you must authorize Habari to have access to your SmugMug account').".";
-						echo "<button style='margin-left:10px;' onclick=\"window.open('{$smug->authorize()}', '_blank').focus();return false;\">"._t('Authorize')."</button></p>";
+						echo "<button style='margin-left:10px;' onclick=\"window.open('{$this->smug->authorize("Access=Public", "Permissions=Modify")}', '_blank').focus();return false;\">"._t('Authorize')."</button></p>";
 						echo "<p>"._t('When you have completed the authorization on SmugMug, return here and confirm that the authorization was successful.');
 						echo "<button style='margin-left:10px;' onclick=\"location.href='{$confirm_url}'; return false;\">"._t('Confirm')."</button></p>";
 						echo "</form>";
 					}
 					break;
 
-				case _t('confirm'):
+				case 'confirm':
 					if(!isset($_SESSION['SmugGalReqToken'])){
 						$auth_url = URL::get('admin', array('page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Authorize')) . '#plugin_options';
 						echo '<form><p>'._t('Either you have already authorized Habari to access your SmugMug account, or you have not yet done so.  Please').'<strong><a href="' . $auth_url . '">'._t('try again').'</a></strong>.</p></form>';
 					} else {
-						$smug = new phpSmug("APIKey={$this->APIKey}", "AppName=SmugMug Silo For Habari/0.1", "OAuthSecret={$this->OAuthSecret}");
-						
 						$reqToken = unserialize($_SESSION['SmugGalReqToken']);
-						$smug->setToken("id={$reqToken['id']}", "Secret={$reqToken['Secret']}");
-						$token = $smug->auth_getAccessToken();
+						$this->smug->setToken("id={$reqToken['id']}", "Secret={$reqToken['Secret']}");
+						$token = $this->smug->auth_getAccessToken();
+						
+						// Now we make an assumption here: we assume that if we find "SquareThumbs=1" for the first album, it's set for all.
+						// We need this so we can display the thumbs nicely on the publish page
+						$this->smug->setToken("id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}");
+
+						$albums = $this->smug->albums_get("Extras=SquareThumbs,Title");
+
+						$thumbSize = ($albums[0]['SquareThumbs'] == 1) ? 100 : 150;
+						Options::set('smugmugsilo__thumbSize_'. User::identify()->id, $thumbSize);
+						
+						$config_url = URL::get('admin', array('page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Configure')) . '#plugin_options';
+
 						if(isset($token)){
-							Options::set('smugmug_token_' . User::identify()->id, '' . serialize($token));
-							echo '<form><p>'._t('Your authorization was set successfully. You can now configure the SmugMug Silo to suit your needs.').'</p></form>';
+							Options::set('smugmugsilo__token_' . User::identify()->id, serialize($token));
+							echo '<form><p>'._t('Your authorization was set successfully. You can now <b><a href="'.$config_url.'">configure</a></b> the SmugMug Silo to suit your needs.').'</p></form>';
 						}
 						else{
 							echo '<form><p>'._t('There was a problem with your authorization:').'</p></form>';
@@ -378,75 +332,144 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					}
 					break;
 				case _t('De-Authorize'):
-					Options::set('smugmug_token_' . User::identify()->id);
+					Options::set('smugmugsilo__token_' . User::identify()->id);
 					$reauth_url = URL::get('admin', array('page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Authorize')) . '#plugin_options';
 					echo '<form><p>'._t('The SmugMug Silo Plugin authorization has been deleted. Please ensure you revoke access from your SmugMug Control Panel too.').'<p>';
 					echo "<p>"._t('Do you want to ')."<b><a href=\"{$reauth_url}\">"._t('re-authorize this plugin')."</a></b>?<p></form>";
 					break;
 				case _t('Configure') :
+					$token = Options::get('smugmugsilo__token_' . User::identify()->id);
+					$customSize = Options::get('smugmugsilo__custom_size_' . User::identify()->id);
+					$imageSize = Options::get('smugmugsilo__image_size_' . User::identify()->id);
+					$useTB = Options::get('smugmugsilo__use_thickbox_' . User::identify()->id);
+					
 					$ui = new FormUI( strtolower( get_class( $this ) ) );
-					$ui->append( 'select', 'smugmug_size','option:smugmugsilo__smugmug_size', _t( 'Default size for images in Posts:' ) );
+					$ui->append( 'select', 'image_size','option:smugmugsilo__image_size_' . User::identify()->id, _t( 'Default size for images in Posts:' ) );
+					$ui->append( 'text', 'custom_size', 'option:smugmugsilo__custom_size_' . User::identify()->id, _t('Custom Size of Longest Edge (px):') );
+					if ($imageSize != 'Custom') {
+						$ui->custom_size->class = 'formcontrol hidden';
+					}
+					$ui->append( 'text', 'cache_timeout', 'option:smugmugsilo__cache_timeout_' . User::identify()->id, _t( 'Cache timeout (seconds):'));
+					$ui->cache_timeout->value = '3600';
+					// Todo: Add "clear cache" button
+					// Todo: Clear cache when settings saved.
 					// Maybe give people the choice at selection time
-					//$ui->flickr_size->options = array( 'TinyURL' => 'Tiny', 'ThumbURL' => 'Thumbnail', 'SmallURL' => 'Small (240px)', 'MediumURL' => 'Medium (500px)', 'LargeURL' => 'Large (1024px)', 'XLargeURL' => 'XLarge', 'XLargeURL' => 'XLarge', 'XLargeURL' => 'XLarge', 'OriginalURL' => 'Original' );
-					$ui->append('submit', 'save', _t( 'Save' ) );
-					$ui->set_option('success_message', _t('Options saved'));
+					$ui->image_size->options = array( 'TinyURL' => 'Tiny', 'ThumbURL' => 'Thumbnail', 'SmallURL' => 'Small', 'MediumURL' => 'Medium', 'LargeURL' => 'Large (if available)', 'XLargeURL' => 'XLarge (if available)', 'X2LargeURL' => 'X2Large (if available)', 'X3LargeURL' => 'X3Large (if available)', 'OriginalURL' => 'Original (if available)', 'Custom' => 'Custom (Longest edge in px)' );
+					// If Thickbox enabled, give option of using it, and what img size to show:
+					if (Plugins::is_loaded('Thickbox')) { // Bug here - this always returns true if plugin exist, even if plugin is disabled - ticket 754 logged
+						$ui->append('fieldset', 'tbfs', 'ThickBox');
+						$ui->tbfs->append('label', 'tbfs', _t("You have the Thickbox plugin installed and active, so you can take advantage of it's functionality with the SmugMug Silo if you wish."));
+						$ui->tbfs->append('checkbox', 'use_tb', 'option:smugmugsilo__use_thickbox_' . User::identify()->id, _t('Use Thickbox?'));
+						$ui->tbfs->append('select', 'tb_image_size', 'option:smugmugsilo__thickbox_img_size_' . User::identify()->id, _t('Image size to use for Thickbox (warning: large images are slow to load):'));
+						if ($useTB == FALSE) {
+							$ui->tb_image_size->class = 'formcontrol hidden';
+						}
+						$ui->tbfs->tb_image_size->options = array( 'MediumURL' => 'Medium', 'LargeURL' => 'Large (if available)', 'XLargeURL' => 'XLarge (if available)', 'X2LargeURL' => 'X2Large (if available)', 'X3LargeURL' => 'X3Large (if available)', 'OriginalURL' => 'Original (if available)' );
+					}
+					$ui->append('submit', 'save', _t( 'Save Options' ) );
+					$ui->set_option('success_message', _t('Options successfully saved.'));
 					$ui->out();
+					//Utils::debug(Controller::get_var('configure'));
 					break;
 			}
 		}
 	}
 	
 	public function action_admin_footer( $theme ) {
+		// Javascript required for publish page
 		if(Controller::get_var('page') == 'publish') {
-			$size = Options::get('flickrsilo__flickr_size');
-			switch($size) {
-				case '_s':
-					$vsizex = 75;
-					break;
-				case '_t':
-					$vsizex = 100;
-					break;
-				case '_m':
-					$vsizex = 240;
-					break;
-				case '':
-					$vsizex = 500;
-					break;
-				case '_b':
-					$vsizex = 1024;
-					break;
-				case '_o':
-					$vsizex = 400;
-					break;
-			}
-			$vsizey = intval($vsizex/4*3);
+			$size = Options::get('smugmugsilo__image_size_' . User::identify()->id);
+			$thumbSize = Options::get('smugmugsilo__thumbSize_' . User::identify()->id);
+			$useThickBox = Options::get('smugmugsilo__use_thickbox_' . User::identify()->id);
+			$thickBoxSize = Options::get('smugmugsilo__thickbox_img_size_' . User::identify()->id);
 
-
-			echo <<< FLICKR
+			$tw = intval(($thumbSize-44)/4);
+			
+			echo <<< SMUG
+			<style type="text/css">
+			div.smugmug ul.mediaactions.dropbutton li { display: inline !important; float:left; width:{intval($thumbSize/4)}px; }
+			div.smugmug ul.mediaactions.dropbutton li.first-child a { background: none !important; }
+			div.smugmug .mediaphotos > ul li { min-width:5px !important; width:{$tw}px !important;}
+			</style>
 			<script type="text/javascript">
-				habari.media.output.flickr = {display: function(fileindex, fileobj) {
-					habari.editor.insertSelection('<a href="' + fileobj.flickr_url + '"><img src="' + fileobj.url + '"></a>');
-				}}
-				habari.media.output.flickrvideo = {
-					embed_video: function(fileindex, fileobj) {
-						habari.editor.insertSelection('<object type="application/x-shockwave-flash" width="{$vsizex}" height="{$vsizey}" data="http://www.flickr.com/apps/video/stewart.swf?v=49235" classid="clsid:D27CDB6E-AE6D-11cf-96B8-444553540000"> <param name="flashvars" value="intl_lang=en-us&amp;photo_secret=' + fileobj.secret + '&amp;photo_id=' + fileobj.id + '&amp;show_info_box=true"></param> <param name="movie" value="http://www.flickr.com/apps/video/stewart.swf?v=49235"></param> <param name="bgcolor" value="#000000"></param> <param name="allowFullScreen" value="true"></param><embed type="application/x-shockwave-flash" src="http://www.flickr.com/apps/video/stewart.swf?v=49235" bgcolor="#000000" allowfullscreen="true" flashvars="intl_lang=en-us&amp;photo_secret=' + fileobj.secret + '&amp;photo_id=' + fileobj.id + '&amp;flickr_show_info_box=true" height="{$vsizey}" width="{$vsizex}"></embed></object>');
-					},
-					thumbnail: function(fileindex, fileobj) {
-						habari.editor.insertSelection('<a href="' + fileobj.flickr_url + '"><img src="' + fileobj.url + '"></a>');
-					}
+				/* Get the silo id from the href of the link and add class to that siloid */
+				var siloid = $("a:contains('SmugMug')").attr("href");
+				$(siloid).addClass('smugmug');
+				
+				/* Disable the search box and make it light grey as it's useless to us */
+				$('.smugmug div.media_controls > input').attr("disabled", true).css("background-color", "#ccc");
+				
+				$('.smugmug .media').unbind('dblclick');				
+				
+				$('.smugmug .media').dblclick(function(){
+					alert('boo');
+				});
+
+				
+				habari.media.output.smugmug = {
+					S: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.SmallURL);},
+					Th: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.ThumbURL);},
+					M: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.MediumURL);},
+					L: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.LargeURL);}
 				}
-				habari.media.preview.flickr = function(fileindex, fileobj) {
-					var stats = '';
-					return '<div class="mediatitle"><a href="' + fileobj.flickr_url + '" class="medialink">media</a>' + fileobj.title + '</div><img src="' + fileobj.thumbnail_url + '"><div class="mediastats"> ' + stats + '</div>';
+
+				function insert_smugmug_photo(fileindex, fileobj, filesizeURL) {
+
+SMUG;
+
+if ($useThickBox) {
+	echo "habari.editor.insertSelection('<a class=\"thickbox\" href=\"' + fileobj.{$thickBoxSize} + '\" title=\"'+ fileobj.Caption + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\"></a>');";
+} else {
+	echo "habari.editor.insertSelection('<a href=\"' + fileobj.AlbumURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\"></a>');";
+}
+
+echo <<< SMUG2
+
 				}
-				habari.media.preview.flickrvideo = function(fileindex, fileobj) {
-					var stats = '';
-					return '<div class="mediatitle"><a href="' + fileobj.flickr_url + '" class="medialink">media</a>' + fileobj.title + '</div><img src="' + fileobj.thumbnail_url + '"><div class="mediastats"> ' + stats + '</div>';
+
+				habari.media.preview.smugmug = function(fileindex, fileobj) {
+					return '<div class="mediatitle"><a href="' + fileobj.AlbumURL + '" class="medialink">media</a>' + fileobj.Title + '</div><img src="' + fileobj.ThumbURL + '" style="width:{$thumbSize}px;">';
 				}
 			</script>
-FLICKR;
+SMUG2;
+		}
+		// Javascript required for config panel
+		if (Controller::get_var('configure') == $this->plugin_id) {
+			echo <<< SM
+					<script type="text/javascript">
+					if ($("#image_size select :selected").val() == 'Custom') {
+						$("#custom_size").removeClass("hidden");
+							} else {
+						$("#custom_size").addClass("hidden");
+
+						}
+					$("#image_size select").change(function () {
+						if (this.value == "Custom") {
+							$("#custom_size").removeClass("hidden");
+						} else {
+							$("#custom_size").addClass("hidden");
+						}
+					});
+					
+					if ($("#use_tb input[type=checkbox]").is(":checked")) {
+						$("#tb_image_size").removeClass("hidden");
+							} else {
+						$("#tb_image_size").addClass("hidden");
+
+						}
+					$("#use_tb input[type=checkbox]").click(function () {
+						if ($("#use_tb input[type=checkbox]").is(":checked")) {
+							$("#tb_image_size").removeClass("hidden");
+						} else {
+							$("#tb_image_size").addClass("hidden");
+						}
+					});
+					</script>
+SM;
 		}
 	}
+	
+						
 
 	private function is_auth()
 	{
@@ -456,33 +479,55 @@ FLICKR;
 		}
 
 		$phpSmug_ok = false;
-		$token = Options::get('smugmug_token_' . User::identify()->id);
-		/*
+		$token = Options::get('smugmugsilo__token_' . User::identify()->id);
 		$token = unserialize($token);
 
-
-
 		if($token != ''){
-			include dirname(__FILE__).'/phpSmug/phpSmug.php';
-			$t = new phpSmug("APIKey=woTP74YfM4zRoScpGFdHYPMLRYZSEhl2", "AppName=SmugMug Silo For Habari/0.1", "OAuthSecret=5a3707ce2c2afadaa5a5e0c1c327ccae");
-			$t->setToken("id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}");
-			$result = $t->auth_checkAccessToken();
+			//$smug = new phpSmug("APIKey={$this->APIKey}", "AppName={$this->info->name}/{$this->info->version}", "OAuthSecret={$this->OAuthSecret}");
+			$this->smug->setToken("id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}");
+			$result = $this->smug->auth_checkAccessToken();
 			if(isset($result)){
 				$phpSmug_ok = true;
 			}
 			else{
-				Options::set('smugmug_token_' . User::identify()->id);
+				Options::set('smugmugsilo__token_' . User::identify()->id);
 				unset($_SESSION['smugmug_token']);
 			}
 		}
-		*/
-		/*
-		 */
-		if ($token != '') {
-			$phpSmug_ok = true;
-		}
-
 		return $phpSmug_ok;
+	}
+	
+	private function truncate($string, $max = 23, $replacement = '...')
+	{
+		if (strlen($string) <= $max)
+		{
+			return $string;
+		}
+		$leave = $max - strlen($replacement);
+		return substr_replace($string, $replacement, $leave);
+	}
+
+	
+	private function recent($num = 10) {
+		// Testing getting the most recent $num photos using the RSS feed (bit of a fudge)
+		$nickname = 'colinseymour';
+		$url = "http://api.smugmug.com/hack/feed.mg?Type=nicknameRecent&Data={$nickname}&format=rss200&ImageCount={$num}";
+		$call = new RemoteRequest($url);
+		$call->set_timeout(5);
+		$result = $call->execute();
+		if (Error::is_error($result)){
+			throw $result;
+		}
+		$response = $call->get_response_body();
+		try{
+			$xml = new SimpleXMLElement($response);
+			return $xml;
+		}
+		catch(Exception $e) {
+			Session::error('Currently unable to connect to Flickr.', 'flickr API');
+//				Utils::debug($url, $response);
+			return false;
+		}
 	}
 }
 
