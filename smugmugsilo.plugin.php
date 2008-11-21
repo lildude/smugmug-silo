@@ -41,6 +41,8 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	public function action_init()
 	{
 				$this->smug = new phpSmug("APIKey={$this->APIKey}", "AppName={$this->info->name}/{$this->info->version}", "OAuthSecret={$this->OAuthSecret}");
+				// Enable caching.  This will be for 24 hours, but will be cleared whenever a file is uploaded via this plugin or manually vi the configure options.
+				$this->smug->enableCache("type=fs", "cache_dir=". HABARI_PATH . '/user/cache/', "cache_expire=86400");
 	}
 
 	/**
@@ -69,7 +71,6 @@ class SmugMugSilo extends Plugin implements MediaSilo
 		$token = Options::get('smugmugsilo__token_' . User::identify()->id);
 		$timeout = Options::get('smugmugsilo__cache_timeout_' . User::identify()->id);
 
-		$this->smug->enableCache("type=fs", "cache_dir=". HABARI_PATH . '/user/cache/', "cache_expire={$timeout}");
 		$token = unserialize($token);
 		$this->smug->setToken("id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}");
 		$results = array();
@@ -281,7 +282,6 @@ class SmugMugSilo extends Plugin implements MediaSilo
 						
 						// Lets speed things up a bit by pre-fetching the album list so it's in our cache
 						$this->smug->setToken("id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}");
-						$this->smug->enableCache("type=fs", "cache_dir=". HABARI_PATH . '/user/cache/');	// Leaves with the default cache time
 						$this->smug->albums_get();
 						
 						$config_url = URL::get('admin', array('page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Configure')) . '#plugin_options';
@@ -318,8 +318,8 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					if ($imageSize != 'Custom') {
 						$ui->custom_size->class = 'formcontrol hidden';
 					}
-					$ui->append( 'text', 'cache_timeout', 'option:smugmugsilo__cache_timeout_' . User::identify()->id, _t( 'Cache timeout (seconds):'));
-					$ui->cache_timeout->value = '3600';
+					//$ui->append( 'text', 'cache_timeout', 'option:smugmugsilo__cache_timeout_' . User::identify()->id, _t( 'Cache timeout (seconds):'));
+					//$ui->cache_timeout->value = '3600';
 					// Todo: Add "clear cache" button
 					// Todo: Clear cache when settings saved.
 					// Maybe give people the choice at selection time
@@ -342,15 +342,16 @@ class SmugMugSilo extends Plugin implements MediaSilo
 			}
 		}
 	}
+	
+
+						
+	
 	/**
 	 * Clear cache files when de-activating
 	 **/
 	public function action_plugin_deactivation( $file )
 	{
-			// Was this plugin deactivated?
 			if ( Plugins::id_from_file( $file ) == Plugins::id_from_file( __FILE__ ) ) {
-					$this->smug->cache = 'fs';
-					$this->smug->cache_dir = HABARI_PATH . '/user/cache/';
 					$this->smug->clearCache();					
 					EventLog::log(_t('SmugMug Silo Cache Cleared.'));
 			}
@@ -467,8 +468,7 @@ SMUGMUG_CONFIG_JS;
 		}
 	}
 	
-						
-
+	
 	private function is_auth()
 	{
 		static $phpSmug_ok = null;
