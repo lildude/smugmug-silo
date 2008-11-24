@@ -246,7 +246,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 		$class = __CLASS__;
 		if($silo instanceof $class) {
 			if(User::identify()->can('upload_smugmug')) {
-				if (strchr($path, '/')) {	// Need to somehow only show this button when album selected
+				if (strchr($path, '/')) {	
 					$controls[] = $this->link_panel(self::SILO_NAME . '/' . $path, 'upload', 'Upload');
 				}
 			}
