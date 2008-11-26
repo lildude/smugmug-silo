@@ -91,7 +91,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 				$galmeta = explode('_', $selected_gallery);
 				if ($selected_gallery) {
 					$props = array();
-					$photos = $this->smug->images_get("AlbumID={$galmeta[0]}", "AlbumKey={$galmeta[1]}", "Extras=Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL"); // Use options to select specific info
+					$photos = $this->smug->images_get("AlbumID={$galmeta[0]}", "AlbumKey={$galmeta[1]}", "Extras=Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,FileName"); // Use options to select specific info
 					foreach($photos['Images'] as $photo) {
 						foreach($photo as $name => $value) {
 								$props[$name] = (string)$value;
@@ -101,6 +101,10 @@ class SmugMugSilo extends Plugin implements MediaSilo
 									$val = explode('<br />', $val);
 									$props['Title'] = $this->truncate($val[0]);
 								}
+								if ($props['Title'] == '') {
+									$props['Title'] = $props['FileName'];
+								}
+									
 						}
 						
 						$results[] = new MediaAsset(
@@ -247,8 +251,9 @@ class SmugMugSilo extends Plugin implements MediaSilo
 		if($silo instanceof $class) {
 			if(User::identify()->can('upload_smugmug')) {
 				if (strchr($path, '/')) {	
-					$controls[] = $this->link_panel(self::SILO_NAME . '/' . $path, 'upload', 'Upload');
+					$controls[] = $this->link_panel(self::SILO_NAME . '/' . $path, 'upload', _t('Upload'));
 				}
+				$controls[] = $this->link_panel(self::SILO_NAME . '/' . $path, 'clearCache', _t('ClearCache'));
 			}
 		}
 		return $controls;
@@ -270,6 +275,12 @@ class SmugMugSilo extends Plugin implements MediaSilo
 		$class = __CLASS__;
 		if($silo instanceof $class) {
 			switch($panelname) {
+				case 'clearCache':
+						$this->smug->clearCache();
+						EventLog::log(_t('SmugMug Silo Cache Cleared.'));
+						$panel .= "<div style='width: 200px; margin:10px auto; text-align:center;'><p>Cache Cleared</p>";
+						$panel .= '<p><br/><strong><a href="#" onclick="habari.media.forceReload();habari.media.showdir(\''. self::SILO_NAME . '/'. $path . '\');">'._t('Return to current silo path.').'</a></strong></p></div>';
+					break;
 				case 'upload':
 					if(isset($_FILES['file'])) {
 						$AlbumID = intval($_POST['AlbumID']);
@@ -286,23 +297,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 						}
 						
 						$this->smug->clearCache();
-						$panel .= "<div style='width: 200px; margin:0 auto; text-align:center;'>{$output}";
-						//$panel .= "AlbumID: {$_POST['AlbumID']} <br/>TmpPath: {$_FILES['file']['tmp_name']} <br/>Filename: {$_FILES['file']['name']} <br/>Caption: {$_POST['Caption']} <br/>Keywords: {$_POST['Keywords']}";
-						//$upload = $this->smug->upload("AlbumID={$gal[0]}", "File={$_FILES['file']['path']}");
-						//$size = Utils::human_size($_FILES['file']['size']);
-						//$panel .= "<div class=\"span-18\" style=\"padding-top:30px;color: #e0e0e0;margin: 0px auto;\"><p>File Uploaded: {$_FILES['file']['name']} ($size) - {$gal[0]} / {$gal[1]}</p>";
-
-						//$path = self::SILO_NAME . '/' . preg_replace('%\.{2,}%', '.', $path). '/' . $_FILES['file']['name'];
-						//$asset = new MediaAsset($path, false);
-						//$asset->upload($_FILES['file']);
-
-						//if($asset->put()) {
-						//	$panel .= '<p>File added successfully.</p>';
-						//}
-						//else {
-						//	$panel .= '<p>File could not be added to the silo.</p>';
-						//}
-
+						$panel .= "<div style='width: 200px; margin:10px auto; text-align:center;'>{$output}";
 						$panel .= '<p><br/><strong><a href="#" onclick="habari.media.forceReload();habari.media.showdir(\''. self::SILO_NAME . '/'. $path . '\');">Browse the current silo path.</a></strong></p></div>';
 					}
 					else {
@@ -322,7 +317,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 <tr><td style="padding-top: 5px; text-align:right;">Optional Settings:</td><td>&nbsp;</td></tr>
 <tr><td style="text-align:right;"><label for="caption">Caption:</label></td><td style="text-align:right;"><input type="text" name="Caption" /></td></tr>
 <tr><td style="text-align:right;"><label for="keywords">Keywords:</label></td><td style="text-align:right;"><input type="text" name="Keywords" /></td></tr>
-<tr><td colspan="2" style="text-align:right;padding-top: 5px;"><input type="submit" name="upload" value="Upload" /></td></tr>
+<tr><td colspan="2" style="text-align:right;padding-top: 5px;"><input type="submit" name="upload" value="Upload" onclick="spinner.start();" /></td></tr>
 </table></p>
 </form>
 <iframe id="simple_upload_frame" name="simple_upload_frame" style="width:1px;height:1px;" onload="simple_uploaded();"></iframe>
@@ -337,6 +332,7 @@ function simple_uploaded() {
 	}
 }
 function simple_uploaded_complete() {
+	spinner.stop();
 	habari.media.jsonpanel(responsedata);
 }
 </script>
@@ -395,7 +391,7 @@ UPLOAD_FORM;
 						
 						$confirm_url = URL::get('admin', array('page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'confirm')) . '#plugin_options';
 						echo '<form><p>'._t('To use this plugin, you must authorize Habari to have access to your SmugMug account').".";
-						echo "<button style='margin-left:10px;' onclick=\"window.open('{$this->smug->authorize("Access=Full", "Permissions=Modify")}', '_blank').focus();return false;\">"._t('Authorize')."</button></p>";
+						echo "<button style='margin-left:10px;' onclick=\"window.open('{$this->smug->authorize("Access=Public", "Permissions=Modify")}', '_blank').focus();return false;\">"._t('Authorize')."</button></p>";
 						echo '<p>'._t('When you have completed the authorization on SmugMug, return here and confirm that the authorization was successful.');
 						echo "<button style='margin-left:10px;' onclick=\"location.href='{$confirm_url}'; return false;\">"._t('Confirm')."</button></p>";
 						echo '</form>';
