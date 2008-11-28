@@ -76,6 +76,25 @@ class SmugMugSilo extends Plugin implements MediaSilo
 		$results = array();
 		$section = strtok($path, '/');
 		switch($section) {
+			case 'recent':
+				$photos = self::recent(10);
+				foreach($photos->channel->item as $photo) {
+					$props = array();
+					foreach($photo as $name => $value) {
+						$props[$name] = (string)$value;
+						$props['filetype'] = 'smugmug';
+						$props['AlbumURL'] = $name['link'];
+						$props['Title'] = $name['title'];
+					}
+					$id = (explode('#', $photo['link']));
+					$photo['id'] = explode('_', $id[1]);
+					$results[] = new MediaAsset(
+						self::SILO_NAME . '/recent/'. $photo['id'],
+						false,
+						$props
+					);
+				}
+				break;
 			case 'categories':
 				$categories = $this->smug->categories_get();
 				foreach($categories as $category) {
@@ -90,12 +109,15 @@ class SmugMugSilo extends Plugin implements MediaSilo
 				$selected_gallery = strtok('/');
 				$galmeta = explode('_', $selected_gallery);
 				if ($selected_gallery) {
-					$props = array();
+					$props = array('Title' => '', 'FileName' => '');
 					$photos = $this->smug->images_get("AlbumID={$galmeta[0]}", "AlbumKey={$galmeta[1]}", "Extras=Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,FileName"); // Use options to select specific info
 					foreach($photos['Images'] as $photo) {
 						foreach($photo as $name => $value) {
 								$props[$name] = (string)$value;
 								$props['filetype'] = 'smugmug';
+								// SmugMug has no concept of Titles, so we split the caption by new lines and 
+								// truncate the first line to 23 chars and use this for the title.
+								// If the title is empty (ie, there's no caption), we rely on the filename.
 								if ($name == "Caption") {
 									$val = nl2br($value);
 									$val = explode('<br />', $val);
@@ -135,7 +157,12 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					self::SILO_NAME . '/categories',
 					true,
 					array('title' => 'Categories')
-				);				
+				);
+				$results[] = new MediaAsset(		
+					self::SILO_NAME . '/recent',
+					true,
+					array('title' => 'Recent Photos')
+				);
 				break;
 		}
 		return $results;
@@ -220,14 +247,13 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	*/
 	public function silo_contents()
 	{
+		$photos = self::recent(5);
+		Utils::debug($photos);
+		foreach($photos['photos'] as $photo){
+			echo '<img src="' . $url . '" width="150px" alt="' . ( isset( $photo['title'] ) ? $photo['title'] : _t('This photo has no title') ) . '">';
+		}
 	}
-	
-	/*
-	public function controls()
-	{
-		echo '<ul class="silo-controls"><li id="upload"><a href="#upload" title="Upload a video">Upload</a></li></ul>';
-	}
-	*/
+
 
 	public function link_panel( $path, $panel, $title )
 	{
@@ -249,11 +275,11 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	{
 		$class = __CLASS__;
 		if($silo instanceof $class) {
+			$controls[] = $this->link_panel(self::SILO_NAME . '/' . $path, 'clearCache', _t('ClearCache'));
 			if(User::identify()->can('upload_smugmug')) {
 				if (strchr($path, '/')) {	
 					$controls[] = $this->link_panel(self::SILO_NAME . '/' . $path, 'upload', _t('Upload'));
 				}
-				$controls[] = $this->link_panel(self::SILO_NAME . '/' . $path, 'clearCache', _t('ClearCache'));
 			}
 		}
 		return $controls;
@@ -277,9 +303,8 @@ class SmugMugSilo extends Plugin implements MediaSilo
 			switch($panelname) {
 				case 'clearCache':
 						$this->smug->clearCache();
-						EventLog::log(_t('SmugMug Silo Cache Cleared.'));
 						$panel .= "<div style='width: 200px; margin:10px auto; text-align:center;'><p>Cache Cleared</p>";
-						$panel .= '<p><br/><strong><a href="#" onclick="habari.media.forceReload();habari.media.showdir(\''. self::SILO_NAME . '/'. $path . '\');">'._t('Return to current silo path.').'</a></strong></p></div>';
+						$panel .= '<p><br/><strong><a href="#" onclick="habari.media.forceReload();habari.media.clickdir(\''. self::SILO_NAME . '/'. $path . '\');habari.media.showdir(\''. self::SILO_NAME . '/'. $path . '\');">'._t('Return to current silo path.').'</a></strong></p></div>';
 					break;
 				case 'upload':
 					if(isset($_FILES['file'])) {
@@ -298,7 +323,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 						
 						$this->smug->clearCache();
 						$panel .= "<div style='width: 200px; margin:10px auto; text-align:center;'>{$output}";
-						$panel .= '<p><br/><strong><a href="#" onclick="habari.media.forceReload();habari.media.showdir(\''. self::SILO_NAME . '/'. $path . '\');">Browse the current silo path.</a></strong></p></div>';
+						$panel .= '<p><br/><strong><a href="#" onclick="habari.media.forceReload();habari.media.clickdir(\''. self::SILO_NAME . '/'. $path . '\');habari.media.showdir(\''. self::SILO_NAME . '/'. $path . '\');">Browse the current silo path.</a></strong></p></div>';
 					}
 					else {
 						$fullpath = self::SILO_NAME . '/' . $path;
@@ -445,14 +470,9 @@ UPLOAD_FORM;
 					if ($imageSize != 'Custom') {
 						$ui->custom_size->class = 'formcontrol hidden';
 					}
-					//$ui->append( 'text', 'cache_timeout', 'option:smugmugsilo__cache_timeout_' . User::identify()->id, _t( 'Cache timeout (seconds):'));
-					//$ui->cache_timeout->value = '3600';
-					// Todo: Add "clear cache" button
-					// Todo: Clear cache when settings saved.
-					// Maybe give people the choice at selection time
 					$ui->image_size->options = array( 'Ti' => 'Tiny', 'Th' => 'Thumbnail', 'S' => 'Small', 'M' => 'Medium', 'L' => 'Large (if available)', 'XL' => 'XLarge (if available)', 'X2' => 'X2Large (if available)', 'X3' => 'X3Large (if available)', 'O' => 'Original (if available)', 'Custom' => 'Custom (Longest edge in px)' );
 					// If Thickbox enabled, give option of using it, and what img size to show:
-					if (Plugins::is_loaded('Thickbox')) { // Bug here - this always returns true if plugin exist, even if plugin is disabled - ticket 754 logged
+					if (Plugins::is_loaded('Thickbox')) { // Requires svn r2903 or later due to ticket #754
 						$ui->append('fieldset', 'tbfs', 'ThickBox');
 						$ui->tbfs->append('label', 'tbfs', _t("You have the Thickbox plugin installed and active, so you can take advantage of it's functionality with the SmugMug Silo if you wish."));
 						$ui->tbfs->append('checkbox', 'use_tb', 'option:smugmugsilo__use_thickbox_' . User::identify()->id, _t('Use Thickbox?'));
@@ -461,7 +481,9 @@ UPLOAD_FORM;
 							$ui->tb_image_size->class = 'formcontrol hidden';
 						}
 						$ui->tbfs->tb_image_size->options = array( 'MediumURL' => 'Medium', 'LargeURL' => 'Large (if available)', 'XLargeURL' => 'XLarge (if available)', 'X2LargeURL' => 'X2Large (if available)', 'X3LargeURL' => 'X3Large (if available)', 'OriginalURL' => 'Original (if available)' );
-					}
+					} 
+					//$photos = self::recent(5);
+					//Utils::debug($photos->channel->item[1]);
 					$ui->append('submit', 'save', _t( 'Save Options' ) );
 					$ui->set_option('success_message', _t('Options successfully saved.'));
 					$ui->out();
@@ -479,12 +501,14 @@ UPLOAD_FORM;
 	public function action_plugin_deactivation( $file )
 	{
 			if ( Plugins::id_from_file( $file ) == Plugins::id_from_file( __FILE__ ) ) {
-					$this->smug->clearCache();					
-					EventLog::log(_t('SmugMug Silo Cache Cleared.'));
+					$this->smug->clearCache();	
+					rmdir($this->smug->cache_dir);
 			}
 	}
 
-	
+	/**
+	 * Add custom styling and Javascript controls to the footer of the admin interface
+	 **/
 	public function action_admin_footer( $theme ) {
 		if(Controller::get_var('page') == 'publish') {
 			$size = Options::get('smugmugsilo__image_size_' . User::identify()->id);
@@ -543,7 +567,7 @@ UPLOAD_FORM;
 
 SMUGMUG_ENTRY_CSS_1;
 
-if ($useThickBox) {
+if ($useThickBox && Plugins::is_loaded('Thickbox')) {
 	echo "habari.editor.insertSelection('<a class=\"thickbox\" href=\"' + fileobj.{$thickBoxSize} + '\" title=\"'+ fileobj.Caption + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\"></a>');";
 } else {
 	echo "habari.editor.insertSelection('<a href=\"' + fileobj.AlbumURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\"></a>');";
@@ -595,7 +619,9 @@ SMUGMUG_CONFIG_JS;
 		}
 	}
 	
-	
+	/**
+	 * Check if the application has been authorised to access SmugMug
+	 **/
 	private function is_auth()
 	{
 		static $phpSmug_ok = null;
@@ -620,7 +646,10 @@ SMUGMUG_CONFIG_JS;
 		}
 		return $phpSmug_ok;
 	}
-	
+	/**
+	 * Function to truncate strings to a set number of characters (23 by default)
+	 * This is used to truncate the "Title" when displaying the images in the silo
+	 **/
 	private function truncate($string, $max = 23, $replacement = '...')
 	{
 		if (strlen($string) <= $max)
@@ -648,7 +677,7 @@ SMUGMUG_CONFIG_JS;
 			return $xml;
 		}
 		catch(Exception $e) {
-			Session::error('Currently unable to connect to Flickr.', 'flickr API');
+			Session::error('Currently unable to connect to SmugMug.', 'SmugMug API');
 //				Utils::debug($url, $response);
 			return false;
 		}
