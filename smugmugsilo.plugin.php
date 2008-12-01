@@ -76,24 +76,39 @@ class SmugMugSilo extends Plugin implements MediaSilo
 		$results = array();
 		$section = strtok($path, '/');
 		switch($section) {
-			case 'recent':
+			case 'recentPhotos':
 				$photos = self::recent(10);
-				foreach($photos->channel->item as $photo) {
-					$props = array();
-					foreach($photo as $name => $value) {
+				$i = 0; $ids = array();
+				foreach($photos->entry as $photo) {
+					$attribs = 	$photo->link->attributes();
+					$ids[$i] = (string)$attribs->href;
+					$i++;				
+				}
+				foreach($ids as $photoURL) {
+					$idKey = explode('#', $photoURL);
+					list($id, $key) = explode('_', $idKey[1]);
+					$info = $this->smug->images_getInfo("ImageID={$id}", "ImageKey={$key}", "Extras=Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,FileName");
+					$props = array('Title' => '', 'FileName' => '');
+					foreach($info as $name => $value) {
 						$props[$name] = (string)$value;
 						$props['filetype'] = 'smugmug';
-						$props['AlbumURL'] = $name['link'];
-						$props['Title'] = $name['title'];
+						if ($name == "Caption") {
+							$val = nl2br($value);
+							$val = explode('<br />', $val);
+							$props['Title'] = $this->truncate($val[0]);
+						}
+						if ($props['Title'] == '') {
+							$props['Title'] = $props['FileName'];
+						}
+									
+						$results[] = new MediaAsset(
+							self::SILO_NAME . '/recentPhotos/' . $id,
+							false,
+							$props
+						);
 					}
-					$id = (explode('#', $photo['link']));
-					$photo['id'] = explode('_', $id[1]);
-					$results[] = new MediaAsset(
-						self::SILO_NAME . '/recent/'. $photo['id'],
-						false,
-						$props
-					);
 				}
+			
 				break;
 			case 'categories':
 				$categories = $this->smug->categories_get();
@@ -159,7 +174,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					array('title' => 'Categories')
 				);
 				$results[] = new MediaAsset(		
-					self::SILO_NAME . '/recent',
+					self::SILO_NAME . '/recentPhotos',
 					true,
 					array('title' => 'Recent Photos')
 				);
@@ -661,10 +676,14 @@ SMUGMUG_CONFIG_JS;
 	}
 
 	
-	private function recent($num = 10) {
-		// Testing getting the most recent $num photos using the RSS feed (bit of a fudge)
+	private function recent($num = 10, $type = "Photos") {
+		/* Testing getting the most recent $num photos using the ATOM feed (bit of a fudge)
+		   We get the list of recent photos/albums from the atom feed as the API doesn't offer this
+		   functionality.  We then use the API to get the relevant information
+		 */
 		$nickname = 'colinseymour';
-		$url = "http://api.smugmug.com/hack/feed.mg?Type=nicknameRecent&Data={$nickname}&format=rss200&ImageCount={$num}";
+		$type = ($type == 'Photos') ? 'RecentPhotos' : '';
+		$url = "http://api.smugmug.com/hack/feed.mg?Type=nickname{$type}&Data={$nickname}&format=atom10&ImageCount={$num}";
 		$call = new RemoteRequest($url);
 		$call->set_timeout(5);
 		$result = $call->execute();
@@ -683,5 +702,20 @@ SMUGMUG_CONFIG_JS;
 		}
 	}
 }
+
+/*
+$str = file_get_contents('./feed.atom');
+$xml = new SimpleXMLElement($str);
+$ids = array();
+$i = 0;
+echo "<pre>";
+foreach ($xml->entry as $entry) {
+   $attribs = $entry->link->attributes();
+   $ids[$i] = (string)$attribs->href;
+   $i++;
+}
+print_r($ids);
+echo "</pre>";
+*/
 
 ?>
