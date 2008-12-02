@@ -7,6 +7,7 @@
 *	- Sort out cache clear up, but need to fix phpSmug first
 *	- Add "clear cache" button to silo actions bar
 *	- Think about offering galleries/categories/latest etc when initially opening silo
+*
 */
 
 require_once(dirname(__FILE__).'/phpSmug/phpSmug.php');
@@ -16,6 +17,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	const SILO_NAME = 'SmugMug';
 	var $APIKey = 'woTP74YfM4zRoScpGFdHYPMLRYZSEhl2';
 	var $OAuthSecret = '5a3707ce2c2afadaa5a5e0c1c327ccae';
+	var $cache_name;
 
 	protected $cache = array();
 
@@ -77,7 +79,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 		$section = strtok($path, '/');
 		switch($section) {
 			case 'recentPhotos':
-				$photos = self::recent(10);
+				$photos = self::getFeed(10);
 				$i = 0; $ids = array();
 				foreach($photos->entry as $photo) {
 					$attribs = 	$photo->link->attributes();
@@ -110,14 +112,59 @@ class SmugMugSilo extends Plugin implements MediaSilo
 				}
 			
 				break;
-			case 'categories':
-				$categories = $this->smug->categories_get();
-				foreach($categories as $category) {
-					$results[] = new MediaAsset(
-						self::SILO_NAME . '/categories/' . (string)$category['Name'],
-						true,
-						array('title' => (string)$category['Name'])
-					);
+			case 'recentGalleries':
+				$selected_gallery = strtok('/');
+				$galmeta = explode('_', $selected_gallery);
+				if ($selected_gallery) {
+					$props = array('Title' => '', 'FileName' => '');
+					$photos = $this->smug->images_get("AlbumID={$galmeta[0]}", "AlbumKey={$galmeta[1]}", "Extras=Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,FileName"); // Use options to select specific info
+					foreach($photos['Images'] as $photo) {
+						foreach($photo as $name => $value) {
+								$props[$name] = (string)$value;
+								$props['filetype'] = 'smugmug';
+								// SmugMug has no concept of Titles, so we split the caption by new lines and 
+								// truncate the first line to 23 chars and use this for the title.
+								// If the title is empty (ie, there's no caption), we rely on the filename.
+								if ($name == "Caption") {
+									$val = nl2br($value);
+									$val = explode('<br />', $val);
+									$props['Title'] = $this->truncate($val[0]);
+								}
+								if ($props['Title'] == '') {
+									$props['Title'] = $props['FileName'];
+								}
+									
+						}
+						
+						$results[] = new MediaAsset(
+							self::SILO_NAME . '/photos/' . $photo['id'],
+							false,
+							$props
+						);
+					}
+				} else {
+					$photos = self::getFeed(10, 'Galleries');
+					$i = 0; $ids = array();
+					foreach($photos->entry as $photo) {
+						$attribs = 	$photo->link->attributes();
+						$ids[$i] = (string)$attribs->href;
+						$i++;				
+					}
+					$j = 0;
+					$galleries = array();
+					foreach($ids as $galURL) {
+						$idKey = explode('/', $galURL);
+						list($id, $key) = explode('_', end($idKey));
+						$galleries[$j] = $this->smug->albums_getInfo("AlbumID={$id}", "AlbumKey={$key}");
+						$j++;
+					}
+					foreach($galleries as $gallery) {
+						$results[] = new MediaAsset(
+							self::SILO_NAME . '/recentGalleries/' . (string)$gallery['id'].'_'.$gallery['Key'],
+							true,
+							array('title' => (string)$gallery['Title'])
+						);
+					}
 				}
 				break;
 			case 'galleries':
@@ -166,12 +213,12 @@ class SmugMugSilo extends Plugin implements MediaSilo
 				$results[] = new MediaAsset(
 					self::SILO_NAME . '/galleries',
 					true,
-					array('title' => 'Galleries')
+					array('title' => 'All Galleries')
 				);
 				$results[] = new MediaAsset(
-					self::SILO_NAME . '/categories',
+					self::SILO_NAME . '/recentGalleries',
 					true,
-					array('title' => 'Categories')
+					array('title' => 'Recent Galleries')
 				);
 				$results[] = new MediaAsset(		
 					self::SILO_NAME . '/recentPhotos',
@@ -318,6 +365,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 			switch($panelname) {
 				case 'clearCache':
 						$this->smug->clearCache();
+						Cache::expire(array("smugmug", '*'));	// Assumes ticket #785 has been implemented into Habari
 						$panel .= "<div style='width: 200px; margin:10px auto; text-align:center;'><p>Cache Cleared</p>";
 						$panel .= '<p><br/><strong><a href="#" onclick="habari.media.forceReload();habari.media.clickdir(\''. self::SILO_NAME . '/'. $path . '\');habari.media.showdir(\''. self::SILO_NAME . '/'. $path . '\');">'._t('Return to current silo path.').'</a></strong></p></div>';
 					break;
@@ -337,6 +385,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 						}
 						
 						$this->smug->clearCache();
+						Cache::expire(array("smugmug", '*'));	// Assumes ticket #785 has been implemented into Habari
 						$panel .= "<div style='width: 200px; margin:10px auto; text-align:center;'>{$output}";
 						$panel .= '<p><br/><strong><a href="#" onclick="habari.media.forceReload();habari.media.clickdir(\''. self::SILO_NAME . '/'. $path . '\');habari.media.showdir(\''. self::SILO_NAME . '/'. $path . '\');">Browse the current silo path.</a></strong></p></div>';
 					}
@@ -518,6 +567,7 @@ UPLOAD_FORM;
 			if ( Plugins::id_from_file( $file ) == Plugins::id_from_file( __FILE__ ) ) {
 					$this->smug->clearCache();	
 					rmdir($this->smug->cache_dir);
+					Cache::expire(array("smugmug", '*'));	// Assumes ticket #785 has been implemented into Habari
 			}
 	}
 
@@ -676,21 +726,41 @@ SMUGMUG_CONFIG_JS;
 	}
 
 	
-	private function recent($num = 10, $type = "Photos") {
+	private function getFeed($num = 10, $type = "Photos", $keyword = NULL) {
 		/* Testing getting the most recent $num photos using the ATOM feed (bit of a fudge)
 		   We get the list of recent photos/albums from the atom feed as the API doesn't offer this
 		   functionality.  We then use the API to get the relevant information
+		   
+		   ToDo: Implement native Habari caching for this call.  Need to see if I can set a cache timeout. Something like 1 hour should do.
 		 */
-		$nickname = 'colinseymour';
-		$type = ($type == 'Photos') ? 'RecentPhotos' : '';
-		$url = "http://api.smugmug.com/hack/feed.mg?Type=nickname{$type}&Data={$nickname}&format=atom10&ImageCount={$num}";
-		$call = new RemoteRequest($url);
-		$call->set_timeout(5);
-		$result = $call->execute();
-		if (Error::is_error($result)){
-			throw $result;
+		$nickName = Options::get('smugmugsilo__nickName_'. User::identify()->id);
+		//$nickname = 'colinseymour';
+		switch($type) {
+			case 'Photos':
+				$urlEnd = "Type=nicknameRecent&Data={$nickName}&format=atom10&ImageCount={$num}";
+				break;
+			case 'Galleries':
+				$urlEnd = "Type=nickname&Data={$nickName}&format=atom10&ImageCount={$num}";
+				break;
+			case 'Search':
+				$urlEnd = "Type=userkeyword&NickName={$nickName}&Data={$keyword}&format=atom10&ImageCount={$num}";
+				break;
 		}
-		$response = $call->get_response_body();
+		$url = "http://api.smugmug.com/hack/feed.mg?{$urlEnd}";
+		$this->cache_name = (array("smugmug", "{$urlEnd}". strtolower(get_class($this))));
+		if (Cache::has($this->cache_name)) {
+			$response = Cache::get($this->cache_name);
+		} else {
+			$call = new RemoteRequest($url);
+			$call->set_timeout(5);
+			$result = $call->execute();
+			if (Error::is_error($result)){
+				throw $result;
+			}
+			$response = $call->get_response_body();
+			Cache::set($this->cache_name, $response);
+		}
+		
 		try{
 			$xml = new SimpleXMLElement($response);
 			return $xml;
@@ -702,20 +772,5 @@ SMUGMUG_CONFIG_JS;
 		}
 	}
 }
-
-/*
-$str = file_get_contents('./feed.atom');
-$xml = new SimpleXMLElement($str);
-$ids = array();
-$i = 0;
-echo "<pre>";
-foreach ($xml->entry as $entry) {
-   $attribs = $entry->link->attributes();
-   $ids[$i] = (string)$attribs->href;
-   $i++;
-}
-print_r($ids);
-echo "</pre>";
-*/
 
 ?>
