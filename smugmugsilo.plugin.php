@@ -67,7 +67,6 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	public function silo_dir($path)
 	{
 		$token = Options::get('smugmugsilo__token_' . User::identify()->id);
-		$timeout = Options::get('smugmugsilo__cache_timeout_' . User::identify()->id);
 
 		$token = unserialize($token);
 		$this->smug->setToken("id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}");
