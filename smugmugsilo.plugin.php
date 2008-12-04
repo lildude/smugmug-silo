@@ -3,11 +3,7 @@
 * SmugMug Silo
 *
 * TODO: 
-*	- Implement upload functionality: Done, just needs tidying
-*	- Sort out cache clear up, but need to fix phpSmug first
-*	- Add "clear cache" button to silo actions bar
-*	- Think about offering galleries/categories/latest etc when initially opening silo
-*
+*	- implement my own group specific cache clearing code until such time as ticket #785 is implemented
 */
 
 require_once(dirname(__FILE__).'/phpSmug/phpSmug.php');
@@ -309,11 +305,6 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	*/
 	public function silo_contents()
 	{
-		$photos = self::recent(5);
-		Utils::debug($photos);
-		foreach($photos['photos'] as $photo){
-			echo '<img src="' . $url . '" width="150px" alt="' . ( isset( $photo['title'] ) ? $photo['title'] : _t('This photo has no title') ) . '">';
-		}
 	}
 
 
@@ -395,7 +386,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 						$gal = explode('/', $path);
 						$gal = explode('_', $gal[1]);
 						$gallery = $this->smug->albums_getInfo("AlbumID={$gal[0]}", "AlbumKey={$gal[1]}");
-						$panel.= <<< UPLOAD_FORM
+						$panel.= <<<UPLOAD_FORM
 <form enctype="multipart/form-data" method="post" id="simple_upload" target="simple_upload_frame" action="{$form_action}" class="span-10" style="margin:0px auto;text-align: center">
 <p><input type="hidden" name="path" value="{$fullpath}">
 	<input type="hidden" name="AlbumID" value="{$gal[0]}">
@@ -496,7 +487,7 @@ UPLOAD_FORM;
 						$this->smug->setToken("id={$reqToken['id']}", "Secret={$reqToken['Secret']}");
 						$token = $this->smug->auth_getAccessToken();
 						
-						// Lets speed things up a bit by pre-fetching the album list so it's in our cache
+						// Lets speed things up a bit by pre-fetching all the gallery info and caching it
 						$this->smug->setToken("id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}");
 						$this->smug->albums_get();
 						
@@ -546,8 +537,6 @@ UPLOAD_FORM;
 						}
 						$ui->tbfs->tb_image_size->options = array( 'MediumURL' => 'Medium', 'LargeURL' => 'Large (if available)', 'XLargeURL' => 'XLarge (if available)', 'X2LargeURL' => 'X2Large (if available)', 'X3LargeURL' => 'X3Large (if available)', 'OriginalURL' => 'Original (if available)' );
 					} 
-					//$photos = self::recent(5);
-					//Utils::debug($photos->channel->item[1]);
 					$ui->append('submit', 'save', _t( 'Save Options' ) );
 					$ui->set_option('success_message', _t('Options successfully saved.'));
 					$ui->out();
@@ -724,17 +713,13 @@ SMUGMUG_CONFIG_JS;
 		$leave = $max - strlen($replacement);
 		return substr_replace($string, $replacement, $leave);
 	}
-
 	
 	private function getFeed($num = 10, $type = "Photos", $keyword = NULL) {
-		/* Testing getting the most recent $num photos using the ATOM feed (bit of a fudge)
-		   We get the list of recent photos/albums from the atom feed as the API doesn't offer this
-		   functionality.  We then use the API to get the relevant information
-		   
-		   ToDo: Implement native Habari caching for this call.  Need to see if I can set a cache timeout. Something like 1 hour should do.
+		/* 
+		   We use the Atom Feeds offered by SmugMug for this info as there are no
+		   API entry points for recent imgs/galleries and searching
 		 */
 		$nickName = Options::get('smugmugsilo__nickName_'. User::identify()->id);
-		//$nickname = 'colinseymour';
 		switch($type) {
 			case 'Photos':
 				$urlEnd = "Type=nicknameRecent&Data={$nickName}&format=atom10&ImageCount={$num}";
@@ -767,7 +752,6 @@ SMUGMUG_CONFIG_JS;
 		}
 		catch(Exception $e) {
 			Session::error('Currently unable to connect to SmugMug.', 'SmugMug API');
-//				Utils::debug($url, $response);
 			return false;
 		}
 	}
