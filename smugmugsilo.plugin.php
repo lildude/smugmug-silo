@@ -2,8 +2,8 @@
 /**
 * SmugMug Silo
 *
-* TODO: 
-*	- implement my own group specific cache clearing code until such time as ticket #785 is implemented
+* TODO: implement my own group specific cache clearing code until such time as ticket #785 is implemented
+* TODO: Store uer prefs in user table not general options as this can be user specific
 */
 
 require_once(dirname(__FILE__).'/phpSmug/phpSmug.php');
