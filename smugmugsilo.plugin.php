@@ -4,6 +4,7 @@
 *
 * TODO: implement my own group specific cache clearing code until such time as ticket #785 is implemented
 * TODO: Store uer prefs in user table not general options as this can be user specific
+* TODO: Replace HEREDOC entries with proper print or echo calls
 */
 
 require_once(dirname(__FILE__).'/phpSmug/phpSmug.php');
@@ -321,12 +322,13 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	 * @param string $panelname The name of the requested panel, if none then emptystring
 	 * @return array The altered $controls array with new (or removed) controls
 	 *
-	 * @todo This should really use FormUI, but FormUI needs a way to submit forms via ajax
+	 * @todo Find out why we get duplicate of the first entry when we click on one of the options.
 	 */
 	public function filter_media_controls( $controls, $silo, $path, $panelname )
 	{
 		$class = __CLASS__;
 		if($silo instanceof $class) {
+   			$controls['root'] = '';
 			$controls[] = $this->link_panel(self::SILO_NAME . '/' . $path, 'clearCache', _t('ClearCache'));
 			if(User::identify()->can('upload_smugmug')) {
 				if (strchr($path, '/')) {	
@@ -396,7 +398,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 <tr><td style="padding-top: 5px; text-align:right;">Optional Settings:</td><td>&nbsp;</td></tr>
 <tr><td style="text-align:right;"><label for="caption">Caption:</label></td><td style="text-align:right;"><input type="text" name="Caption" /></td></tr>
 <tr><td style="text-align:right;"><label for="keywords">Keywords:</label></td><td style="text-align:right;"><input type="text" name="Keywords" /></td></tr>
-<tr><td colspan="2" style="text-align:right;padding-top: 5px;"><input type="submit" name="upload" value="Upload" onclick="spinner.start();" /></td></tr>
+<tr><td style="text-align:right;padding-top: 5px;"><button onclick="habari.media.forceReload();habari.media.clickdir('SmugMug/{$path}');habari.media.showdir('SmugMug/{$path}'); return false;">Cancel</button></td><td style="text-align:right;padding-top: 5px;"><input type="submit" name="upload" value="Upload" onclick="spinner.start();" /></td></tr>
 </table></p>
 </form>
 <iframe id="simple_upload_frame" name="simple_upload_frame" style="width:1px;height:1px;" onload="simple_uploaded();"></iframe>
