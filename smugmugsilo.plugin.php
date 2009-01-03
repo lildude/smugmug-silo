@@ -4,7 +4,6 @@
 *
 * TODO: implement my own group specific cache clearing code until such time as ticket #785 is implemented
 * TODO: Store uer prefs in user table not general options as this can be user specific
-* TODO: Replace HEREDOC entries with proper print or echo calls
 */
 
 
@@ -67,12 +66,11 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	*/
 	public function silo_dir($path)
 	{
-		$token = Options::get('smugmugsilo__token_' . User::identify()->id);
-
-		$token = unserialize($token);
+        $token = User::identify()->info->smugmugsilo__token;
 		$this->smug->setToken("id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}");
 		$results = array();
 		$section = strtok($path, '/');
+
 		switch($section) {
 			case 'recentPhotos':
 				$photos = self::getFeed(10);
@@ -90,8 +88,11 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					foreach($info as $name => $value) {
 						$props[$name] = (string)$value;
 						$props['filetype'] = 'smugmug';
+                        // SmugMug has no concept of Titles, so we strip all HTML tags, split the caption by new lines and
+                        // truncate the first line to 23 chars and use this for the title.
+                        // If the title is empty (ie, there's no caption), we rely on the filename.
 						if ($name == "Caption") {
-							$val = nl2br($value);
+							$val = nl2br(strip_tags($value));
 							$val = explode('<br />', $val);
 							$props['Title'] = $this->truncate($val[0]);
 						}
@@ -118,11 +119,11 @@ class SmugMugSilo extends Plugin implements MediaSilo
 						foreach($photo as $name => $value) {
 								$props[$name] = (string)$value;
 								$props['filetype'] = 'smugmug';
-								// SmugMug has no concept of Titles, so we split the caption by new lines and 
+								// SmugMug has no concept of Titles, so we strip all HTML tags, split the caption by new lines and
 								// truncate the first line to 23 chars and use this for the title.
 								// If the title is empty (ie, there's no caption), we rely on the filename.
 								if ($name == "Caption") {
-									$val = nl2br($value);
+									$val = nl2br(strip_tags($value));
 									$val = explode('<br />', $val);
 									$props['Title'] = $this->truncate($val[0]);
 								}
@@ -173,11 +174,11 @@ class SmugMugSilo extends Plugin implements MediaSilo
 						foreach($photo as $name => $value) {
 								$props[$name] = (string)$value;
 								$props['filetype'] = 'smugmug';
-								// SmugMug has no concept of Titles, so we split the caption by new lines and 
+								// SmugMug has no concept of Titles, so we strip all HTML tags, split the caption by new lines and
 								// truncate the first line to 23 chars and use this for the title.
 								// If the title is empty (ie, there's no caption), we rely on the filename.
 								if ($name == "Caption") {
-									$val = nl2br($value);
+									$val = nl2br(strip_tags($value));
 									$val = explode('<br />', $val);
 									$props['Title'] = $this->truncate($val[0]);
 								}
@@ -356,8 +357,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 		if($silo instanceof $class) {
 			switch($panelname) {
 				case 'clearCache':
-						$this->smug->clearCache();
-						Cache::expire(array("smugmug", '*'));	// Assumes ticket #785 has been implemented into Habari
+                        $this->clearCaches();
 						$panel .= "<div style='width: 200px; margin:10px auto; text-align:center;'><p>Cache Cleared</p>";
 						$panel .= '<p><br/><strong><a href="#" onclick="habari.media.forceReload();habari.media.clickdir(\''. self::SILO_NAME . '/'. $path . '\');habari.media.showdir(\''. self::SILO_NAME . '/'. $path . '\');">'._t('Return to current silo path.').'</a></strong></p></div>';
 					break;
@@ -376,8 +376,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 							$output = $e->getMessage();
 						}
 						
-						$this->smug->clearCache();
-						Cache::expire(array("smugmug", '*'));	// Assumes ticket #785 has been implemented into Habari
+                        $this->clearCaches();
 						$panel .= "<div style='width: 200px; margin:10px auto; text-align:center;'>{$output}";
 						$panel .= '<p><br/><strong><a href="#" onclick="habari.media.forceReload();habari.media.clickdir(\''. self::SILO_NAME . '/'. $path . '\');habari.media.showdir(\''. self::SILO_NAME . '/'. $path . '\');">Browse the current silo path.</a></strong></p></div>';
 					}
@@ -467,15 +466,21 @@ UPLOAD_FORM;
 						echo '<p>'._t('You have already successfully authorized Habari to access your SmugMug account').'.</p>';
 						echo '<p>'._t('Do you want to ')."<a href=\"{$deauth_url}\">"._t('revoke authorization').'</a>?</p>';
 					} else {
-						$reqToken = $this->smug->auth_getRequestToken();
-						$_SESSION['SmugGalReqToken'] = serialize($reqToken);
-						
-						$confirm_url = URL::get('admin', array('page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'confirm')) . '#plugin_options';
-						echo '<form><p>'._t('To use this plugin, you must authorize Habari to have access to your SmugMug account').".";
-						echo "<button style='margin-left:10px;' onclick=\"window.open('{$this->smug->authorize("Access=Public", "Permissions=Modify")}', '_blank').focus();return false;\">"._t('Authorize')."</button></p>";
-						echo '<p>'._t('When you have completed the authorization on SmugMug, return here and confirm that the authorization was successful.');
-						echo "<button style='margin-left:10px;' onclick=\"location.href='{$confirm_url}'; return false;\">"._t('Confirm')."</button></p>";
-						echo '</form>';
+						try { 
+                            $reqToken = $this->smug->auth_getRequestToken();
+                        	$_SESSION['SmugGalReqToken'] = serialize($reqToken);
+                            $confirm_url = URL::get('admin', array('page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'confirm')) . '#plugin_options';
+                            echo '<form><p>'._t('To use this plugin, you must authorize Habari to have access to your SmugMug account').".";
+                            echo "<button style='margin-left:10px;' onclick=\"window.open('{$this->smug->authorize("Access=Full", "Permissions=Modify")}', '_blank').focus();return false;\">"._t('Authorize')."</button></p>";
+                            echo '<p>'._t('When you have completed the authorization on SmugMug, return here and confirm that the authorization was successful.');
+                            echo "<button style='margin-left:10px;' onclick=\"location.href='{$confirm_url}'; return false;\">"._t('Confirm')."</button></p>";
+                            echo '</form>';
+                        }
+                        catch (Exception $e) {
+                            Session::error($e->getMessage(), 'SmugMug API');
+                            EventLog::log($e->getMessage());
+                            echo "<p>Ooops. SmugMug didn't like that call: {$e->getMessage()}</p>";
+                        }
 					}
 					break;
 
@@ -495,8 +500,9 @@ UPLOAD_FORM;
 						$config_url = URL::get('admin', array('page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Configure')) . '#plugin_options';
 
 						if(isset($token)){
-							Options::set('smugmugsilo__token_' . User::identify()->id, serialize($token));
-							Options::set('smugmugsilo__nickName_'. User::identify()->id, $token['User']['NickName']);
+					        User::identify()->info->smugmugsilo__token = $token;
+                            User::identify()->info->smugmugsilo__nickName = $token['User']['NickName'];
+                            User::identify()->info->commit();
 							EventLog::log(_t('Authorization Confirmed.'));
 							echo '<form><p>'._t('Your authorization was set successfully. You can now <b><a href="'.$config_url.'">configure</a></b> the SmugMug Silo to suit your needs.').'</p></form>';
 						}
@@ -507,7 +513,10 @@ UPLOAD_FORM;
 					}
 					break;
 				case _t('De-Authorize'):
-					Options::set('smugmugsilo__token_' . User::identify()->id);
+                    User::identify()->info->smugmugsilo__token = '';
+                    User::identify()->info->commit();
+                    // Clear the cache
+                    $this->clearCaches();
 					$reauth_url = URL::get('admin', array('page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Authorize')) . '#plugin_options';
 					echo '<form><p>'._t('The SmugMug Silo Plugin authorization has been deleted. Please ensure you revoke access from your SmugMug Control Panel too.').'<p>';
 					echo "<p>"._t('Do you want to ')."<b><a href=\"{$reauth_url}\">"._t('re-authorize this plugin')."</a></b>?<p></form>";
@@ -515,15 +524,16 @@ UPLOAD_FORM;
 
 					break;
 				case _t('Configure') :
-					$token = Options::get('smugmugsilo__token_' . User::identify()->id);
-					$customSize = Options::get('smugmugsilo__custom_size_' . User::identify()->id);
-					$imageSize = Options::get('smugmugsilo__image_size_' . User::identify()->id);
-					$useTB = Options::get('smugmugsilo__use_thickbox_' . User::identify()->id);
-					
+                    $user = User::identify();
+                    $token = $user->info->smugmugsilo__token;
+                    $customSize = $user->info->smugmugsilo__custom_size;
+                    $imageSize = $user->info->smugmugsilo__image_size;
+                    $useTB = $user->info->smugmugsilo__use_thickbox;
+
 					$ui = new FormUI( strtolower( get_class( $this ) ) );
-					$ui->append( 'select', 'image_size','option:smugmugsilo__image_size_' . User::identify()->id, _t( 'Default size for images in Posts:' ) );
-					$ui->append( 'text', 'custom_size', 'option:smugmugsilo__custom_size_' . User::identify()->id, _t('Custom Size of Longest Edge (px):') );
-					if ($imageSize != 'Custom') {
+					$ui->append( 'select', 'image_size','user:smugmugsilo__image_size', _t( 'Default size for images in Posts:' ) );
+					$ui->append( 'text', 'custom_size', 'user:smugmugsilo__custom_size', _t('Custom Size of Longest Edge (px):') );
+                    if ($imageSize != 'Custom') {
 						$ui->custom_size->class = 'formcontrol hidden';
 					}
 					$ui->image_size->options = array( 'Ti' => 'Tiny', 'Th' => 'Thumbnail', 'S' => 'Small', 'M' => 'Medium', 'L' => 'Large (if available)', 'XL' => 'XLarge (if available)', 'X2' => 'X2Large (if available)', 'X3' => 'X3Large (if available)', 'O' => 'Original (if available)', 'Custom' => 'Custom (Longest edge in px)' );
@@ -531,9 +541,9 @@ UPLOAD_FORM;
 					if (Plugins::is_loaded('Thickbox')) { // Requires svn r2903 or later due to ticket #754
 						$ui->append('fieldset', 'tbfs', 'ThickBox');
 						$ui->tbfs->append('label', 'tbfs', _t("You have the Thickbox plugin installed and active, so you can take advantage of it's functionality with the SmugMug Silo if you wish."));
-						$ui->tbfs->append('checkbox', 'use_tb', 'option:smugmugsilo__use_thickbox_' . User::identify()->id, _t('Use Thickbox?'));
-						$ui->tbfs->append('select', 'tb_image_size', 'option:smugmugsilo__thickbox_img_size_' . User::identify()->id, _t('Image size to use for Thickbox (warning: large images are slow to load):'));
-						if ($useTB == FALSE) {
+						$ui->tbfs->append('checkbox', 'use_tb', 'user:smugmugsilo__use_thickbox', _t('Use Thickbox?'));
+						$ui->tbfs->append('select', 'tb_image_size', 'user:smugmugsilo__thickbox_img_size', _t('Image size to use for Thickbox (warning: large images are slow to load):'));
+                        if ($useTB == FALSE) {
 							$ui->tb_image_size->class = 'formcontrol hidden';
 						}
 						$ui->tbfs->tb_image_size->options = array( 'MediumURL' => 'Medium', 'LargeURL' => 'Large (if available)', 'XLargeURL' => 'XLarge (if available)', 'X2LargeURL' => 'X2Large (if available)', 'X3LargeURL' => 'X3Large (if available)', 'OriginalURL' => 'Original (if available)' );
@@ -555,9 +565,8 @@ UPLOAD_FORM;
 	public function action_plugin_deactivation( $file )
 	{
 			if ( Plugins::id_from_file( $file ) == Plugins::id_from_file( __FILE__ ) ) {
-					$this->smug->clearCache();	
-					rmdir($this->smug->cache_dir);
-					Cache::expire(array("smugmug", '*'));	// Assumes ticket #785 has been implemented into Habari
+                    rmdir($this->smug->cache_dir);
+                    $this->clearCaches();
 			}
 	}
 
@@ -566,15 +575,16 @@ UPLOAD_FORM;
 	 **/
 	public function action_admin_footer( $theme ) {
 		if(Controller::get_var('page') == 'publish') {
-			$size = Options::get('smugmugsilo__image_size_' . User::identify()->id);
+            $user = User::identify();
+            $size = $user->info->smugmugsilo__image_size;
 			if ($size == "Custom") {
-				$customSize = Options::get('smugmugsilo__custom_size_' . User::identify()->id);
+                $customSize = $user->info->smugmugsilo__custom_size;
 				$size = "{$customSize}x{$customSize}";
 			}
-			$nickName = Options::get('smugmugsilo__nickName_'. User::identify()->id);
-			$useThickBox = Options::get('smugmugsilo__use_thickbox_' . User::identify()->id);
-			$thickBoxSize = Options::get('smugmugsilo__thickbox_img_size_' . User::identify()->id);
-			
+			$nickName = $user->info->smugmugsilo__nickName;
+            $useThickBox = $user->info->smugmugsilo__use_thickbox;
+            $thickBoxSize = $user->info->smugmugsilo__thickbox_img_size;
+
 			echo <<< SMUGMUG_ENTRY_CSS_1
 			<style type="text/css">
 			div.smugmug ul.mediaactions.dropbutton li { display: inline !important; float:left; width:20px; }
@@ -633,7 +643,7 @@ echo <<< SMUGMUG_ENTRY_CSS_2
 				}
 
 				habari.media.preview.smugmug = function(fileindex, fileobj) {
-					return '<div class="mediatitle"><a href="' + fileobj.AlbumURL + '" class="medialink">media</a>' + fileobj.Title + '</div><img src="' + fileobj.ThumbURL + '">';
+					return '<div class="mediatitle"><a href="' + fileobj.AlbumURL + '" class="medialink" target="_blank">media</a>' + fileobj.Title + '</div><img src="' + fileobj.ThumbURL + '">';
 				}
 			</script>
 SMUGMUG_ENTRY_CSS_2;
@@ -673,7 +683,17 @@ SMUGMUG_ENTRY_CSS_2;
 SMUGMUG_CONFIG_JS;
 		}
 	}
-	
+
+
+    /**
+     * Simple function to call once to clear multiple cache locations
+     *
+     */
+    private function clearCaches() {
+        $this->smug->clearCache();
+        //Cache::expire(array("smugmug", '*'));	// Assumes ticket #785 has been implemented into Habari
+        Cache::expire("smugmug");
+    }
 	/**
 	 * Check if the application has been authorised to access SmugMug
 	 **/
@@ -685,19 +705,22 @@ SMUGMUG_CONFIG_JS;
 		}
 
 		$phpSmug_ok = false;
-		$token = Options::get('smugmugsilo__token_' . User::identify()->id);
-		$token = unserialize($token);
+        $token = User::identify()->info->smugmugsilo__token;
 
-		if($token != ''){
+        if($token != ''){
 			$this->smug->setToken("id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}");
-			$result = $this->smug->auth_checkAccessToken();
-			if(isset($result)){
-				$phpSmug_ok = true;
-			}
-			else{
-				Options::set('smugmugsilo__token_' . User::identify()->id);
+            try {
+                $result = $this->smug->auth_checkAccessToken();
+                if(isset($result)){
+                    $phpSmug_ok = true;
+                }
+            }
+            catch (Exception $e) {
+                Session::error($e->getMessage().' Please re-authorize your plugin.', 'SmugMug API');
+                User::identify()->info->smugmugsilo__token = '';
+                User::identify()->info->commit();
 				unset($_SESSION['smugmug_token']);
-			}
+            }
 		}
 		return $phpSmug_ok;
 	}
@@ -720,7 +743,7 @@ SMUGMUG_CONFIG_JS;
 		   We use the Atom Feeds offered by SmugMug for this info as there are no
 		   API entry points for recent imgs/galleries and searching
 		 */
-		$nickName = Options::get('smugmugsilo__nickName_'. User::identify()->id);
+        $nickName = User::identify()->info->smugmugsilo__nickName;
 		switch($type) {
 			case 'Photos':
 				$urlEnd = "Type=nicknameRecent&Data={$nickName}&format=atom10&ImageCount={$num}";
