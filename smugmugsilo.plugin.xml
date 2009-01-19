@@ -7,5 +7,6 @@
 	<version>0.1</version>
 	<description>Implements basic SmugMug integration.</description>
 	<license url="http://www.apache.org/licenses/LICENSE-2.0.html">Apache Software License 2.0</license>
-	<copyright>2008</copyright>
+    <guid>4A881D3E-E643-11DD-8D7A-AA9D55D89593</guid>
+	<copyright>2009</copyright>
 </plugin>

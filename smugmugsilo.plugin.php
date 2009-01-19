@@ -29,6 +29,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 			'license' => 'Apache License 2.0',
 			'description' => 'Implements basic SmugMug integration',
 			'copyright' => date("Y"),
+            'guid' => '4A881D3E-E643-11DD-8D7A-AA9D55D89593'
 			);
 	}
 
