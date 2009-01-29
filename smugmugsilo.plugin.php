@@ -38,10 +38,12 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	*/
 	public function action_init()
 	{
-				require_once(dirname(__FILE__).'/phpSmug/phpSmug.php');
-				$this->smug = new phpSmug("APIKey={$this->APIKey}", "AppName={$this->info->name}/{$this->info->version}", "OAuthSecret={$this->OAuthSecret}");
-				// Enable caching.  This will be for 24 hours, but will be cleared whenever a file is uploaded via this plugin or manually vi the configure options.
-				$this->smug->enableCache("type=fs", "cache_dir=". HABARI_PATH . '/user/cache/', "cache_expire=86400");
+        if ( !class_exists( 'phpSmug' ) ) {
+            require_once(dirname(__FILE__).'/phpSmug/phpSmug.php');
+        }
+        $this->smug = new phpSmug("APIKey={$this->APIKey}", "AppName={$this->info->name}/{$this->info->version}", "OAuthSecret={$this->OAuthSecret}");
+        // Enable caching.  This will be for 24 hours, but will be cleared whenever a file is uploaded via this plugin or manually vi the configure options.
+        $this->smug->enableCache("type=fs", "cache_dir=". HABARI_PATH . '/user/cache/', "cache_expire=86400");
 	}
 
 	/**
