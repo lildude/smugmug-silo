@@ -2,8 +2,6 @@
 /**
 * SmugMug Silo
 *
-* TODO: implement my own group specific cache clearing code until such time as ticket #785 is implemented
-* TODO: Store uer prefs in user table not general options as this can be user specific
 */
 
 
@@ -695,7 +693,10 @@ SMUGMUG_CONFIG_JS;
     private function clearCaches() {
         $this->smug->clearCache();
         //Cache::expire(array("smugmug", '*'));	// Assumes ticket #785 has been implemented into Habari
-        Cache::expire("smugmug");
+        // Workaround until #785 is implemented
+        foreach ( Cache::get_group('smugmug') as $name => $data ) {
+            Cache::expire( array('smugmug', $name) );
+        }
     }
 	/**
 	 * Check if the application has been authorised to access SmugMug
