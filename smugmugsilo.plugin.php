@@ -20,6 +20,7 @@
 /**
  * SmugMug Silo
  *
+ * @todo: clearly mark private images and hidden galleries in the silo interface
  */
 
 class SmugMugSilo extends Plugin implements MediaSilo
@@ -42,7 +43,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 			'author' => 'Colin Seymour',
 			'authorurl' => 'http://www.colinseymour.co.uk/',
 			'license' => 'Apache License 2.0',
-			'description' => 'Implements basic SmugMug integration',
+			'description' => 'Provides a silo to access your SmugMug photos',
 			'copyright' => date("Y"),
             'guid' => '4A881D3E-E643-11DD-8D7A-AA9D55D89593'
 			);
@@ -187,7 +188,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 				$galmeta = explode('_', $selected_gallery);
 				if ($selected_gallery) {
 					$props = array('Title' => '', 'FileName' => '');
-					$photos = $this->smug->images_get("AlbumID={$galmeta[0]}", "AlbumKey={$galmeta[1]}", "Extras=Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,FileName"); // Use options to select specific info
+					$photos = $this->smug->images_get("AlbumID={$galmeta[0]}", "AlbumKey={$galmeta[1]}", "Extras=Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,FileName,Public"); // Use options to select specific info
 					foreach($photos['Images'] as $photo) {
 						foreach($photo as $name => $value) {
 								$props[$name] = (string)$value;
@@ -202,8 +203,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 								}
 								if ($props['Title'] == '') {
 									$props['Title'] = $props['FileName'];
-								}
-									
+								}			
 						}
 						
 						$results[] = new MediaAsset(
@@ -213,12 +213,17 @@ class SmugMugSilo extends Plugin implements MediaSilo
 						);
 					}
 				} else {
-					$galleries = $this->smug->albums_get();
+					$galleries = $this->smug->albums_get("Extras=Public");
 					foreach($galleries as $gallery) {
 						$results[] = new MediaAsset(
 							self::SILO_NAME . '/galleries/' . (string)$gallery['id'].'_'.$gallery['Key'],
 							true,
-							array('title' => (string)$gallery['Title'])
+							// If the gallery is NOT public, mark it by preceding with a lock icon
+							// This is a bit of the fudge as the MediaAsset takes an icon argument, but doesn't actually do anything with it.  This would be a great place for it to use it in this case. It would be great if it did.
+							array('title' => (($gallery['Public'] == TRUE) ? '' : '<img src="'.URL::get_from_filesystem(__FILE__) . '/lib/imgs/bwlock2.png" style="vertical-align: middle; height:12px; width:12px" title="Private Gallery" /> ').$gallery['Title'])
+							// This works, but needs modification of media.js in order to show the icon.
+							//array('title' => $gallery['Title'], 'icon' => URL::get_from_filesystem(__FILE__) . '/lib/imgs/bwlock2.png'),
+							//URL::get_from_filesystem(__FILE__) . '/lib/imgs/icon.png'
 						);
 					}
 						
@@ -484,15 +489,21 @@ UPLOAD_FORM;
 						echo '<p>'._t('You have already successfully authorized Habari to access your SmugMug account').'.</p>';
 						echo '<p>'._t('Do you want to ')."<a href=\"{$deauth_url}\">"._t('revoke authorization').'</a>?</p>';
 					} else {
-						try { 
+						try {
+
                             $reqToken = $this->smug->auth_getRequestToken();
                         	$_SESSION['SmugGalReqToken'] = serialize($reqToken);
                             $confirm_url = URL::get('admin', array('page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'confirm')) . '#plugin_options';
-                            echo '<form><p>'._t('To use this plugin, you must authorize Habari to have access to your SmugMug account').".";
+                            /*echo '<form><p>'._t('To use this plugin, you must authorize Habari to have access to your SmugMug account').".";
                             echo "<button style='margin-left:10px;' onclick=\"window.open('{$this->smug->authorize("Access=Full", "Permissions=Modify")}', '_blank').focus();return false;\">"._t('Authorize')."</button></p>";
                             echo '<p>'._t('When you have completed the authorization on SmugMug, return here and confirm that the authorization was successful.');
                             echo "<button style='margin-left:10px;' onclick=\"location.href='{$confirm_url}'; return false;\">"._t('Confirm')."</button></p>";
-                            echo '</form>';
+                            echo '</form>';*/
+							echo '<form><table style="border-spacing: 5px; width: 100%;"><tr><td>'._t('To use this plugin, you must authorize Habari to have access to your SmugMug account').".</td>";
+                            echo "<td><button id='auth' style='margin-left:10px;' onclick=\"window.open('{$this->smug->authorize("Access=Full", "Permissions=Modify")}', '_blank').focus();return false;\">"._t('Authorize')."</button></td></tr>";
+                            echo '<tr><td>'._t('When you have completed the authorization on SmugMug, return here and confirm that the authorization was successful.')."</td>";
+                            echo "<td><button disabled='true' id='conf' style='margin-left:10px;' onclick=\"location.href='{$confirm_url}'; return false;\">"._t('Confirm')."</button></td></tr>";
+                            echo '</table></form>';
                         }
                         catch (Exception $e) {
                             Session::error($e->getMessage(), 'SmugMug API');
@@ -610,6 +621,7 @@ UPLOAD_FORM;
 			div.smugmug ul.mediaactions.dropbutton li.first-child:hover { -moz-border-radius-bottomleft: 3px !important;  -webkit-border-bottom-left-radius: 3px !important; }
 			div.smugmug ul.mediaactions.dropbutton li.last-child:hover { -moz-border-radius-bottomleft: 0px !important;  -webkit-border-bottom-left-radius: 0px !important; }
 			div.smugmug .mediaphotos > ul li { min-width:5px !important; width:9px !important;}
+
 			</style>
 			<script type="text/javascript">
 				/* Get the silo id from the href of the link and add class to that siloid */
@@ -651,9 +663,9 @@ UPLOAD_FORM;
 SMUGMUG_ENTRY_CSS_1;
 
 if ($useThickBox && Plugins::is_loaded('Thickbox')) {
-	echo "habari.editor.insertSelection('<a class=\"thickbox\" href=\"' + fileobj.{$thickBoxSize} + '\" title=\"'+ fileobj.Caption + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\"></a>');";
+	echo "habari.editor.insertSelection('<a class=\"thickbox\" href=\"' + fileobj.{$thickBoxSize} + '\" title=\"'+ fileobj.Caption + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" /></a>');";
 } else {
-	echo "habari.editor.insertSelection('<a href=\"' + fileobj.AlbumURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\"></a>');";
+	echo "habari.editor.insertSelection('<a href=\"' + fileobj.AlbumURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" /></a>');";
 }
 
 echo <<< SMUGMUG_ENTRY_CSS_2
@@ -668,7 +680,23 @@ SMUGMUG_ENTRY_CSS_2;
 		}
 		// Javascript required for config panel
 		if (Controller::get_var('configure') == $this->plugin_id) {
-			echo <<< SMUGMUG_CONFIG_JS
+			// Authorize specific Javascript
+			if (Controller::get_var('configaction') == 'Authorize') {
+				echo <<< SMUGMUG_AUTH_JS
+					<script type="text/javascript">
+					$("#auth").toggle( 
+						function () {
+							$('#conf').removeAttr("disabled"); 
+						}, 
+						function () { 
+							$('#conf').attr("disabled", true);
+						});
+					</script>
+SMUGMUG_AUTH_JS;
+			}
+			// Configure specific Javascript
+			if (Controller::get_var('configaction') == 'Configure') {
+				echo <<< SMUGMUG_CONFIG_JS
 					<script type="text/javascript">
 					if ($("#image_size select :selected").val() == 'Custom') {
 						$("#custom_size").removeClass("hidden");
@@ -699,6 +727,7 @@ SMUGMUG_ENTRY_CSS_2;
 					});
 					</script>
 SMUGMUG_CONFIG_JS;
+			}
 		}
 	}
 
@@ -709,8 +738,6 @@ SMUGMUG_CONFIG_JS;
      */
     private function clearCaches() {
         $this->smug->clearCache();
-        //Cache::expire(array("smugmug", '*'));	// Assumes ticket #785 has been implemented into Habari
-        // Workaround until #785 is implemented
         foreach ( Cache::get_group('smugmug') as $name => $data ) {
             Cache::expire( array('smugmug', $name) );
         }
