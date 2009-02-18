@@ -199,7 +199,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 								if ($name == "Caption") {
 									$val = nl2br(strip_tags($value));
 									$val = explode('<br />', $val);
-									$props['Title'] = $this->truncate($val[0]);
+									$props['Title'] = ($props['Public']) ? $this->truncate($val[0]) : $this->truncate($val[0], 18);
 								}
 								if ($props['Title'] == '') {
 									$props['Title'] = $props['FileName'];
@@ -220,6 +220,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 							true,
 							// If the gallery is NOT public, mark it by preceding with a lock icon
 							// This is a bit of the fudge as the MediaAsset takes an icon argument, but doesn't actually do anything with it.  This would be a great place for it to use it in this case. It would be great if it did.
+							// @todo: Look into adding the necessary code to Habari so the icon passed to MediaAsset IS used
 							array('title' => (($gallery['Public'] == TRUE) ? '' : '<img src="'.URL::get_from_filesystem(__FILE__) . '/lib/imgs/bwlock2.png" style="vertical-align: middle; height:12px; width:12px" title="Private Gallery" /> ').$gallery['Title'])
 							// This works, but needs modification of media.js in order to show the icon.
 							//array('title' => $gallery['Title'], 'icon' => URL::get_from_filesystem(__FILE__) . '/lib/imgs/bwlock2.png'),
@@ -490,15 +491,9 @@ UPLOAD_FORM;
 						echo '<p>'._t('Do you want to ')."<a href=\"{$deauth_url}\">"._t('revoke authorization').'</a>?</p>';
 					} else {
 						try {
-
                             $reqToken = $this->smug->auth_getRequestToken();
                         	$_SESSION['SmugGalReqToken'] = serialize($reqToken);
                             $confirm_url = URL::get('admin', array('page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'confirm')) . '#plugin_options';
-                            /*echo '<form><p>'._t('To use this plugin, you must authorize Habari to have access to your SmugMug account').".";
-                            echo "<button style='margin-left:10px;' onclick=\"window.open('{$this->smug->authorize("Access=Full", "Permissions=Modify")}', '_blank').focus();return false;\">"._t('Authorize')."</button></p>";
-                            echo '<p>'._t('When you have completed the authorization on SmugMug, return here and confirm that the authorization was successful.');
-                            echo "<button style='margin-left:10px;' onclick=\"location.href='{$confirm_url}'; return false;\">"._t('Confirm')."</button></p>";
-                            echo '</form>';*/
 							echo '<form><table style="border-spacing: 5px; width: 100%;"><tr><td>'._t('To use this plugin, you must authorize Habari to have access to your SmugMug account').".</td>";
                             echo "<td><button id='auth' style='margin-left:10px;' onclick=\"window.open('{$this->smug->authorize("Access=Full", "Permissions=Modify")}', '_blank').focus();return false;\">"._t('Authorize')."</button></td></tr>";
                             echo '<tr><td>'._t('When you have completed the authorization on SmugMug, return here and confirm that the authorization was successful.')."</td>";
@@ -621,7 +616,7 @@ UPLOAD_FORM;
 			div.smugmug ul.mediaactions.dropbutton li.first-child:hover { -moz-border-radius-bottomleft: 3px !important;  -webkit-border-bottom-left-radius: 3px !important; }
 			div.smugmug ul.mediaactions.dropbutton li.last-child:hover { -moz-border-radius-bottomleft: 0px !important;  -webkit-border-bottom-left-radius: 0px !important; }
 			div.smugmug .mediaphotos > ul li { min-width:5px !important; width:9px !important;}
-
+			div.smugmug .media .priv_img { background: transparent url('http://devon/~cs125667/habari/user/plugins/smugmugsilo/lib/imgs/bwlock2.png') no-repeat 0 50%; padding-left: 16px;}
 			</style>
 			<script type="text/javascript">
 				/* Get the silo id from the href of the link and add class to that siloid */
@@ -673,7 +668,7 @@ echo <<< SMUGMUG_ENTRY_CSS_2
 				}
 
 				habari.media.preview.smugmug = function(fileindex, fileobj) {
-					return '<div class="mediatitle"><a href="' + fileobj.AlbumURL + '" class="medialink" target="_blank">media</a>' + fileobj.Title + '</div><img src="' + fileobj.ThumbURL + '">';
+					return '<div class="mediatitle priv_img"><a href="' + fileobj.AlbumURL + '" class="medialink" target="_blank">media</a>' + fileobj.Title + '</div><img src="' + fileobj.ThumbURL + '">';
 				}
 			</script>
 SMUGMUG_ENTRY_CSS_2;
