@@ -21,6 +21,7 @@
  * SmugMug Silo
  *
  * @todo: clearly mark private images and hidden galleries in the silo interface
+ * @todo: serialize options and store in a single option in the user_info table.
  */
 
 class SmugMugSilo extends Plugin implements MediaSilo
@@ -589,8 +590,10 @@ UPLOAD_FORM;
 	public function action_plugin_deactivation( $file )
 	{
 			if ( Plugins::id_from_file( $file ) == Plugins::id_from_file( __FILE__ ) ) {
-                    rmdir($this->smug->cache_dir);
+                    unset(User::identify()->info->smugmugsilo__token);
+                    User::identify()->info->commit();
                     $this->clearCaches();
+                    rmdir($this->smug->cache_dir);
 			}
 	}
 
