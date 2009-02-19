@@ -20,6 +20,7 @@
 /**
  * SmugMug Silo
  *
+ * @todo: Finish private/hidden identification in recent photos and galleries.
  * @todo: serialize options and store in a single option in the user_info table.
  * @todo: add debug stuff
  * @todo: KISS - tidy up the code and reduce duplicate code - the silo_dir() has loads
@@ -30,9 +31,9 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	const SILO_NAME = 'SmugMug';
 	var $APIKey = 'woTP74YfM4zRoScpGFdHYPMLRYZSEhl2';
 	var $OAuthSecret = '5a3707ce2c2afadaa5a5e0c1c327ccae';
-	var $cache_name;
+	var $cache_name;	// todo: Should this really be a class variable?
 
-	protected $cache = array();
+	protected $cache = array();	// todo: Do we actually use this?
 
 	/**
 	* Provide plugin info to the system
@@ -109,8 +110,8 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					foreach($ids as $photoURL) {
 						$idKey = explode('#', $photoURL);
 						list($id, $key) = explode('_', $idKey[1]);
-						$info = $this->smug->images_getInfo("ImageID={$id}", "ImageKey={$key}", "Extras=Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,FileName");
-						$props = array('Title' => '', 'FileName' => '');
+						$info = $this->smug->images_getInfo("ImageID={$id}", "ImageKey={$key}", "Extras=Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,FileName,Hidden");
+						$props = array('Title' => '', 'FileName' => '', 'Hidden' => 0);
 						foreach($info as $name => $value) {
 							$props[$name] = (string)$value;
 							$props['filetype'] = 'smugmug';
@@ -146,8 +147,8 @@ class SmugMugSilo extends Plugin implements MediaSilo
 						$results = Cache::get($cache_name);
 					}
 					else {
-						$props = array('Title' => '', 'FileName' => '');
-						$photos = $this->smug->images_get("AlbumID={$galmeta[0]}", "AlbumKey={$galmeta[1]}", "Extras=Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,FileName"); // Use options to select specific info
+						$props = array('Title' => '', 'FileName' => '', 'Hidden' => 0);
+						$photos = $this->smug->images_get("AlbumID={$galmeta[0]}", "AlbumKey={$galmeta[1]}", "Extras=Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,FileName,Hidden"); // Use options to select specific info
 						foreach($photos['Images'] as $photo) {
 							foreach($photo as $name => $value) {
 									$props[$name] = (string)$value;
