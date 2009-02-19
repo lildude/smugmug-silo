@@ -119,13 +119,14 @@ class SmugMugSilo extends Plugin implements MediaSilo
 							// truncate the first line to 23 chars and use this for the title.
 							// If the title is empty (ie, there's no caption), we rely on the filename.
 							if ($name == "Caption") {
-								$val = nl2br(strip_tags($value));
-								$val = explode('<br />', $val);
-								$props['Title'] = $this->truncate($val[0]);
-							}
-							if ($props['Title'] == '') {
-								$props['Title'] = $props['FileName'];
-							}
+                                $val = nl2br(strip_tags($value));
+                                $val = explode('<br />', $val);
+                                $props['Title'] = ($props['Hidden'] == 1) ? $this->truncate($val[0], 18) : $this->truncate($val[0]);
+
+                                if ($props['Title'] == '') {
+                                    $props['Title'] = $props['FileName'];
+                                }
+                            }
 
 							$results[] = new MediaAsset(
 								self::SILO_NAME . '/recentPhotos/' . $id,
@@ -151,20 +152,20 @@ class SmugMugSilo extends Plugin implements MediaSilo
 						$photos = $this->smug->images_get("AlbumID={$galmeta[0]}", "AlbumKey={$galmeta[1]}", "Extras=Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,FileName,Hidden"); // Use options to select specific info
 						foreach($photos['Images'] as $photo) {
 							foreach($photo as $name => $value) {
-									$props[$name] = (string)$value;
-									$props['filetype'] = 'smugmug';
-									// SmugMug has no concept of Titles, so we strip all HTML tags, split the caption by new lines and
-									// truncate the first line to 23 chars and use this for the title.
-									// If the title is empty (ie, there's no caption), we rely on the filename.
-									if ($name == "Caption") {
-										$val = nl2br(strip_tags($value));
-										$val = explode('<br />', $val);
-										$props['Title'] = $this->truncate($val[0]);
-									}
-									if ($props['Title'] == '') {
-										$props['Title'] = $props['FileName'];
-									}
+                                $props[$name] = (string)$value;
+                                $props['filetype'] = 'smugmug';
+                                // SmugMug has no concept of Titles, so we strip all HTML tags, split the caption by new lines and
+                                // truncate the first line to 23 chars and use this for the title.
+                                // If the title is empty (ie, there's no caption), we rely on the filename.
+                                if ($name == "Caption") {
+                                    $val = nl2br(strip_tags($value));
+                                    $val = explode('<br />', $val);
+                                    $props['Title'] = ($props['Hidden'] == 1) ? $this->truncate($val[0], 18) : $this->truncate($val[0]);
 
+                                    if ($props['Title'] == '') {
+                                        $props['Title'] = $props['FileName'];
+                                    }
+                                }
 							}
 
 							$results[] = new MediaAsset(
@@ -211,7 +212,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 				$selected_gallery = strtok('/');
 				$galmeta = explode('_', $selected_gallery);
 				if ($selected_gallery) {
-					$cache_name = (array(strtolower(get_class($this)), $selected_gallery.$user));
+					$cache_name = (array(strtolower(get_class($this)), $selected_gallery));
 					if (Cache::has($cache_name)) {
 						$results = Cache::get($cache_name);
 					}
@@ -220,22 +221,20 @@ class SmugMugSilo extends Plugin implements MediaSilo
 						$photos = $this->smug->images_get("AlbumID={$galmeta[0]}", "AlbumKey={$galmeta[1]}", "Extras=Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,FileName,Hidden"); // Use options to select specific info
 						foreach($photos['Images'] as $photo) {
 							foreach($photo as $name => $value) {
-									$props[$name] = (string)$value;
-									$props['filetype'] = 'smugmug';
-									// SmugMug has no concept of Titles, so we strip all HTML tags, split the caption by new lines and
-									// truncate the first line to 23 chars and use this for the title.
-									// If the title is empty (ie, there's no caption), we rely on the filename.
-									if ($name == "Caption") {
-										$val = nl2br(strip_tags($value));
-										$val = explode('<br />', $val);
-										$props['Title'] = $this->truncate($val[0]);
-									}
-									if ($props['Title'] == '') {
-										$props['Title'] = $props['FileName'];
-									}
-									if ($props['Hidden'] == 1) {
-										$props['Title'] = $this->truncate($props['Title'], 18);
-									}
+                                $props[$name] = (string)$value;
+                                $props['filetype'] = 'smugmug';
+                                // SmugMug has no concept of Titles, so we strip all HTML tags, split the caption by new lines and
+                                // truncate the first line to 23 chars and use this for the title.
+                                // If the title is empty (ie, there's no caption), we rely on the filename.
+                                if ($name == "Caption") {
+                                    $val = nl2br(strip_tags($value));
+                                    $val = explode('<br />', $val);
+                                    $props['Title'] = ($props['Hidden'] == 1) ? $this->truncate($val[0], 18) : $this->truncate($val[0]);
+
+                                    if ($props['Title'] == '') {
+                                        $props['Title'] = $props['FileName'];
+                                    }
+                                }
 							}
 
 							$results[] = new MediaAsset(
@@ -283,6 +282,19 @@ class SmugMugSilo extends Plugin implements MediaSilo
 		return $results;
 	}
 
+    /**
+     * Function for easily setting the image title
+     */
+    private function setTitle($props, $value) {
+        $val = nl2br(strip_tags($value));
+		$val = explode('<br />', $val);
+		$props['Title'] = ($props['Hidden'] == 1) ? $this->truncate($val[0], 18) : $this->truncate($val[0]);
+        if ($props['Title'] == '') {
+            $props['Title'] = $props['FileName'];
+        }
+        return $props;
+    }
+    
 	/**
 	* Get the file from the specified path
 	*
@@ -640,6 +652,7 @@ UPLOAD_FORM;
 			$nickName = $user->info->smugmugsilo__nickName;
             $useThickBox = $user->info->smugmugsilo__use_thickbox;
             $thickBoxSize = $user->info->smugmugsilo__thickbox_img_size;
+            $lockicon = URL::get_from_filesystem(__FILE__) . '/lib/imgs/bwlock2.png';
 
 			echo <<< SMUGMUG_ENTRY_CSS_1
 			<style type="text/css">
@@ -648,7 +661,7 @@ UPLOAD_FORM;
 			div.smugmug ul.mediaactions.dropbutton li.first-child:hover { -moz-border-radius-bottomleft: 3px !important;  -webkit-border-bottom-left-radius: 3px !important; -moz-border-radius-topright: 0px !important;  -webkit-border-top-right-radius: 0px !important; }
 			div.smugmug ul.mediaactions.dropbutton li.last-child { -moz-border-radius-bottomleft: 0px !important;  -webkit-border-bottom-left-radius: 0px !important; border-right: none; }
 			div.smugmug ul.mediaactions.dropbutton li.last-child:hover { -moz-border-radius-topright: 3px !important;  -webkit-border-top-right-radius: 3px !important; -moz-border-radius-bottomright: 3px !important;  -webkit-border-bottom-right-radius: 3px !important; padding-right: 7px !important; }
-			span.hidden_img { background: transparent url('http://devon/~cs125667/habari/user/plugins/smugmugsilo/lib/imgs/bwlock2.png') no-repeat 0 50%; width: 16px; height: 32px; float: left;}
+			span.hidden_img { background: transparent url('{$lockicon}') no-repeat 0 50%; width: 16px; height: 32px; float: left;}
 			</style>
 			<script type="text/javascript">
 				/* Get the silo id from the href of the link and add class to that siloid */
