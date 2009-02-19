@@ -20,7 +20,6 @@
 /**
  * SmugMug Silo
  *
- * @todo: clearly mark private images and hidden galleries in the silo interface
  * @todo: serialize options and store in a single option in the user_info table.
  * @todo: add debug stuff
  * @todo: KISS - tidy up the code and reduce duplicate code - the silo_dir() has loads
