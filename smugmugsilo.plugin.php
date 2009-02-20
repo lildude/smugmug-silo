@@ -32,6 +32,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	var $APIKey = 'woTP74YfM4zRoScpGFdHYPMLRYZSEhl2';
 	var $OAuthSecret = '5a3707ce2c2afadaa5a5e0c1c327ccae';
 	var $cache_name;	// todo: Should this really be a class variable?
+	var $cache_expiry = 86400;	// seconds.  This is 24 hours.
 
 	protected $cache = array();	// todo: Do we actually use this?
 
@@ -62,7 +63,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
         }
         $this->smug = new phpSmug("APIKey={$this->APIKey}", "AppName={$this->info->name}/{$this->info->version}", "OAuthSecret={$this->OAuthSecret}");
         // Enable caching.  This will be for 24 hours, but will be cleared whenever a file is uploaded via this plugin or manually vi the configure options.
-        $this->smug->enableCache("type=fs", "cache_dir=". HABARI_PATH . '/user/cache/', "cache_expire=86400");
+        $this->smug->enableCache("type=fs", "cache_dir=". HABARI_PATH . '/user/cache/', "cache_expire={$this->cache_expiry}");
 	}
 
 	/**
@@ -89,6 +90,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	public function silo_dir($path)
 	{
         $token = User::identify()->info->smugmugsilo__token;
+		$user = User::identify()->info->smugmugsilo__nickName;
 		$this->smug->setToken("id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}");
 		$results = array();
 		$section = strtok($path, '/');
@@ -110,22 +112,13 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					foreach($ids as $photoURL) {
 						$idKey = explode('#', $photoURL);
 						list($id, $key) = explode('_', $idKey[1]);
-						$info = $this->smug->images_getInfo("ImageID={$id}", "ImageKey={$key}", "Extras=Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,FileName,Hidden");
+						$info = $this->smug->images_getInfo("ImageID={$id}", "ImageKey={$key}", "Extras=Hidden,Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,FileName");
 						$props = array('Title' => '', 'FileName' => '', 'Hidden' => 0);
 						foreach($info as $name => $value) {
 							$props[$name] = (string)$value;
 							$props['filetype'] = 'smugmug';
-							// SmugMug has no concept of Titles, so we strip all HTML tags, split the caption by new lines and
-							// truncate the first line to 23 chars and use this for the title.
-							// If the title is empty (ie, there's no caption), we rely on the filename.
 							if ($name == "Caption") {
-                                $val = nl2br(strip_tags($value));
-                                $val = explode('<br />', $val);
-                                $props['Title'] = ($props['Hidden'] == 1) ? $this->truncate($val[0], 18) : $this->truncate($val[0]);
-
-                                if ($props['Title'] == '') {
-                                    $props['Title'] = $props['FileName'];
-                                }
+							    $props['Title'] = self::setTitle($props, $value);
                             }
 
 							$results[] = new MediaAsset(
@@ -135,7 +128,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 							);
 						}
 					}
-					Cache::set($cache_name, $results);
+					Cache::set($cache_name, $results, $this->cache_expiry);
 				}
 			
 				break;
@@ -149,22 +142,13 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					}
 					else {
 						$props = array('Title' => '', 'FileName' => '', 'Hidden' => 0);
-						$photos = $this->smug->images_get("AlbumID={$galmeta[0]}", "AlbumKey={$galmeta[1]}", "Extras=Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,FileName,Hidden"); // Use options to select specific info
+						$photos = $this->smug->images_get("AlbumID={$galmeta[0]}", "AlbumKey={$galmeta[1]}", "Extras=Hidden,Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,FileName"); // Use options to select specific info
 						foreach($photos['Images'] as $photo) {
 							foreach($photo as $name => $value) {
                                 $props[$name] = (string)$value;
                                 $props['filetype'] = 'smugmug';
-                                // SmugMug has no concept of Titles, so we strip all HTML tags, split the caption by new lines and
-                                // truncate the first line to 23 chars and use this for the title.
-                                // If the title is empty (ie, there's no caption), we rely on the filename.
                                 if ($name == "Caption") {
-                                    $val = nl2br(strip_tags($value));
-                                    $val = explode('<br />', $val);
-                                    $props['Title'] = ($props['Hidden'] == 1) ? $this->truncate($val[0], 18) : $this->truncate($val[0]);
-
-                                    if ($props['Title'] == '') {
-                                        $props['Title'] = $props['FileName'];
-                                    }
+									$props['Title'] = self::setTitle($props, $value);
                                 }
 							}
 
@@ -174,7 +158,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 								$props
 							);
 						}
-					Cache::set($cache_name, $results);
+					Cache::set($cache_name, $results, $this->cache_expiry);
 					}
 				} else {
 					$cache_name = (array(strtolower(get_class($this)), "recentgalleries".$user));
@@ -205,7 +189,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 							);
 						}
 					}
-					Cache::set($cache_name, $results);
+					Cache::set($cache_name, $results, $this->cache_expiry);
 				}
 				break;
 			case 'galleries':
@@ -218,22 +202,13 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					}
 					else {
 						$props = array('Title' => '', 'FileName' => '', 'Hidden' => 0);
-						$photos = $this->smug->images_get("AlbumID={$galmeta[0]}", "AlbumKey={$galmeta[1]}", "Extras=Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,FileName,Hidden"); // Use options to select specific info
+						$photos = $this->smug->images_get("AlbumID={$galmeta[0]}", "AlbumKey={$galmeta[1]}", "Extras=Hidden,Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,FileName"); // Use options to select specific info
 						foreach($photos['Images'] as $photo) {
 							foreach($photo as $name => $value) {
                                 $props[$name] = (string)$value;
                                 $props['filetype'] = 'smugmug';
-                                // SmugMug has no concept of Titles, so we strip all HTML tags, split the caption by new lines and
-                                // truncate the first line to 23 chars and use this for the title.
-                                // If the title is empty (ie, there's no caption), we rely on the filename.
                                 if ($name == "Caption") {
-                                    $val = nl2br(strip_tags($value));
-                                    $val = explode('<br />', $val);
-                                    $props['Title'] = ($props['Hidden'] == 1) ? $this->truncate($val[0], 18) : $this->truncate($val[0]);
-
-                                    if ($props['Title'] == '') {
-                                        $props['Title'] = $props['FileName'];
-                                    }
+									$props['Title'] = self::setTitle($props, $value);
                                 }
 							}
 
@@ -243,7 +218,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 								$props
 							);
 						}
-						Cache::set($cache_name, $results);
+						Cache::set($cache_name, $results, $this->cache_expiry);
 					}
 				} else {
 					// Don't need to cache this as it's quick anyway.
@@ -284,15 +259,20 @@ class SmugMugSilo extends Plugin implements MediaSilo
 
     /**
      * Function for easily setting the image title
+	 *
+	 * SmugMug has no concept of Titles, so we strip all HTML tags, split the
+	 * caption by new lines and truncate the first line to 23 chars and use this
+	 * for the title. If the title is empty (ie, there's no caption), we rely
+	 * on the filename.
      */
-    private function setTitle($props, $value) {
+    private static function setTitle($props, $value) {
         $val = nl2br(strip_tags($value));
 		$val = explode('<br />', $val);
-		$props['Title'] = ($props['Hidden'] == 1) ? $this->truncate($val[0], 18) : $this->truncate($val[0]);
+		$props['Title'] = ($props['Hidden'] == 1) ? self::truncate($val[0], 18) : self::truncate($val[0]);
         if ($props['Title'] == '') {
             $props['Title'] = $props['FileName'];
         }
-        return $props;
+        return $props['Title'];
     }
     
 	/**
@@ -822,7 +802,7 @@ SMUGMUG_CONFIG_JS;
 	 * Function to truncate strings to a set number of characters (23 by default)
 	 * This is used to truncate the "Title" when displaying the images in the silo
 	 **/
-	private function truncate($string, $max = 22, $replacement = '...')
+	private static function truncate($string, $max = 22, $replacement = '...')
 	{
 		if (strlen($string) <= $max)
 		{
@@ -850,7 +830,7 @@ SMUGMUG_CONFIG_JS;
 				break;
 		}
 		$url = "http://api.smugmug.com/hack/feed.mg?{$urlEnd}";
-		$this->cache_name = (array(strtolower(get_class($this)), "{$urlEnd}".$user));
+		$this->cache_name = (array(strtolower(get_class($this)), "{$urlEnd}".$nickName));
 		if (Cache::has($this->cache_name)) {
 			$response = Cache::get($this->cache_name);
 		} else {
