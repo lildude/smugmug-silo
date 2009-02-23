@@ -269,6 +269,88 @@ class SmugMugSilo extends Plugin implements MediaSilo
 		return $results;
     }
 
+   /**
+   * Get the file from the specified path
+   *
+   * @param string $path The path of the file to retrieve
+   * @param array $qualities Qualities that specify the version of the file to retrieve.
+   * @return MediaAsset The requested asset
+   */
+   public function silo_get($path, $qualities = null)
+   {
+   }
+
+   /**
+   * Get the direct URL of the file of the specified path
+   *
+   * @param string $path The path of the file to retrieve
+   * @param array $qualities Qualities that specify the version of the file to retrieve.
+   * @return string The requested url
+   */
+   public function silo_url($path, $qualities = null)
+   {
+   }
+
+   /**
+   * Create a new asset instance for the specified path
+   *
+   * @param string $path The path of the new file to create
+   * @return MediaAsset The requested asset
+   */
+   public function silo_new($path)
+   {
+   }
+
+   /**
+   * Store the specified media at the specified path
+   *
+   * @param string $path The path of the file to retrieve
+   * @param MediaAsset $ The asset to store
+   */
+   public function silo_put($path, $filedata)
+   {
+   }
+
+   /**
+   * Delete the file at the specified path
+   *
+   * @param string $path The path of the file to retrieve
+   */
+   public function silo_delete($path)
+   {
+   }
+
+   /**
+   * Retrieve a set of highlights from this silo
+   * This would include things like recently uploaded assets, or top downloads
+   *
+   * @return array An array of MediaAssets to highlihgt from this silo
+   */
+   public function silo_highlights()
+   {
+   }
+
+   /**
+   * Retrieve the permissions for the current user to access the specified path
+   *
+   * @param string $path The path to retrieve permissions for
+   * @return array An array of permissions constants (MediaSilo::PERM_READ, MediaSilo::PERM_WRITE)
+   */
+   public function silo_permissions($path)
+   {
+   }
+
+   /**
+   * Return directory contents for the silo path
+   *
+   * @param string $path The path to retrieve the contents of
+   * @return array An array of MediaAssets describing the contents of the directory
+   */
+   public function silo_contents()
+   {
+   }
+
+
 	/**
 	 * Return a link for the panel at the top of the silo window.
 	 */
