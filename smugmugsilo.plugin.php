@@ -20,18 +20,18 @@
 /**
  * SmugMug Silo
  *
- * @todo: serialize options and store in a single option in the user_info table.
  * @todo: add debug stuff
- * @todo: KISS - tidy up the code and reduce duplicate code
  * @todo: Get SmugMugSilo specific API key
  */
 
 class SmugMugSilo extends Plugin implements MediaSilo
 {
     const SILO_NAME = 'SmugMug';
-    var $APIKey = 'woTP74YfM4zRoScpGFdHYPMLRYZSEhl2';
-    var $OAuthSecret = '5a3707ce2c2afadaa5a5e0c1c327ccae';
-    var $cache_expiry = 86400;	// seconds.  This is 24 hours.
+	const DEBUG = FALSE;		// Only change this if you absolutely have to.
+
+    const APIKEY = 'woTP74YfM4zRoScpGFdHYPMLRYZSEhl2';
+    const OAUTHSECRET = '5a3707ce2c2afadaa5a5e0c1c327ccae';
+    const CACHE_EXPIRY = 86400;	// seconds.  This is 24 hours.
 
     /**
     * Provide plugin info to the system
@@ -59,14 +59,14 @@ class SmugMugSilo extends Plugin implements MediaSilo
 		if ( !class_exists( 'phpSmug' ) ) {
 			require_once( dirname( __FILE__ ).'/phpSmug/phpSmug.php' );
 		}
-		$this->smug = new phpSmug( "APIKey={$this->APIKey}",
+		$this->smug = new phpSmug( "APIKey=".self::APIKEY,
 								   "AppName={$this->info->name}/{$this->info->version}",
-								   "OAuthSecret={$this->OAuthSecret}" );
+								   "OAuthSecret=".self::OAUTHSECRET );
 		// Enable caching.  This will be for 24 hours, but will be cleared whenever
-		// a file is uploaded via this plugin or manually vi the configure options.
+		// a file is uploaded via this plugin or manually via the silo.
 		$this->smug->enableCache( "type=fs",
 								  "cache_dir=". HABARI_PATH . '/user/cache/',
-								  "cache_expire={$this->cache_expiry}" );
+								  "cache_expire=".self::CACHE_EXPIRY );
     }
 
     /**
@@ -135,7 +135,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 										);
 					}
 				}
-				Cache::set( $cache_name, $results, $this->cache_expiry );
+				Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
 			}
 
 			break;
@@ -167,7 +167,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 											$props
 											);
 						}
-						Cache::set( $cache_name, $results, $this->cache_expiry );
+						Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
 					}
 				} else {
 					$cache_name = ( array( 'smugmugsilo', "recentgalleries".$user ) );
@@ -199,7 +199,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 											);
 						}
 					}
-					Cache::set( $cache_name, $results, $this->cache_expiry );
+					Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
 				}
 			break;
 			case 'galleries':
@@ -230,7 +230,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 											$props
 											);
 						}
-					Cache::set( $cache_name, $results, $this->cache_expiry );
+					Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
 					}
 				} else {
 					// Don't need to cache this as it's quick anyway.
@@ -277,17 +277,6 @@ class SmugMugSilo extends Plugin implements MediaSilo
    * @return MediaAsset The requested asset
    */
    public function silo_get($path, $qualities = null)
-   {
-   }
-
-   /**
-   * Get the direct URL of the file of the specified path
-   *
-   * @param string $path The path of the file to retrieve
-   * @param array $qualities Qualities that specify the version of the file to retrieve.
-   * @return string The requested url
-   */
-   public function silo_url($path, $qualities = null)
    {
    }
 
@@ -404,11 +393,8 @@ class SmugMugSilo extends Plugin implements MediaSilo
 				break;
 			    case 'upload':
 				    if( isset( $_FILES['file'] ) ) {
-					    $AlbumID = intval( $_POST['AlbumID'] );
-					    $Caption = $_POST['Caption'];
-
 					    try {
-						    $result = $this->smug->images_upload( "AlbumID={$AlbumID}", 
+						    $result = $this->smug->images_upload( "AlbumID={$_POST['AlbumID']}",
 																  "File={$_FILES['file']['tmp_name']}",
 																  "FileName={$_FILES['file']['name']}",
 																  "Caption={$_POST['Caption']}",
@@ -584,7 +570,8 @@ UPLOAD_FORM;
 				    }
 				    $ui->image_size->options = array( 'Ti' => 'Tiny', 'Th' => 'Thumbnail', 'S' => 'Small', 'M' => 'Medium', 'L' => 'Large (if available)', 'XL' => 'XLarge (if available)', 'X2' => 'X2Large (if available)', 'X3' => 'X3Large (if available)', 'O' => 'Original (if available)', 'Custom' => 'Custom (Longest edge in px)' );
 				    // If Thickbox enabled, give option of using it, and what img size to show:
-				    if ( Plugins::is_loaded( 'Thickbox' ) ) { // Requires svn r2903 or later due to ticket #754
+				    // Commenting out as people may have their own installation of thickbox and not the plugin
+					// if ( Plugins::is_loaded( 'Thickbox' ) ) { // Requires svn r2903 or later due to ticket #754
 					    $ui->append( 'fieldset', 'tbfs', 'ThickBox' );
 					    $ui->tbfs->append( 'label', 'tbfs', _t( "You have the Thickbox plugin installed and active, so you can take advantage of it's functionality with the SmugMug Silo if you wish." ) );
 					    $ui->tbfs->append( 'checkbox', 'use_tb', 'user:smugmugsilo__use_thickbox', _t( 'Use Thickbox?' ) );
@@ -593,7 +580,7 @@ UPLOAD_FORM;
 						    $ui->tb_image_size->class = 'formcontrol hidden';
 					    }
 					    $ui->tbfs->tb_image_size->options = array( 'MediumURL' => 'Medium', 'LargeURL' => 'Large (if available)', 'XLargeURL' => 'XLarge (if available)', 'X2LargeURL' => 'X2Large (if available)', 'X3LargeURL' => 'X3Large (if available)', 'OriginalURL' => 'Original (if available)' );
-				    }
+				    // } // End of if is_loaded()
 				    $ui->append( 'submit', 'save', _t( 'Save Options' ) );
 				    $ui->set_option( 'success_message', _t( 'Options successfully saved.' ) );
 				    $ui->out();
@@ -601,6 +588,7 @@ UPLOAD_FORM;
 		    }
 	    }
     }
+
 
     /**
      * Clear cache files when de-activating
