@@ -57,7 +57,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
     public function action_init()
     {
 		if ( !class_exists( 'phpSmug' ) ) {
-			require_once( dirname( __FILE__ ).'/phpSmug/phpSmug.php' );
+			require_once( dirname( __FILE__ ).'/lib/phpSmug/phpSmug.php' );
 		}
 		$this->smug = new phpSmug( "APIKey=".self::APIKEY,
 								   "AppName={$this->info->name}/{$this->info->version}",
@@ -573,7 +573,7 @@ UPLOAD_FORM;
 				    // Commenting out as people may have their own installation of thickbox and not the plugin
 					// if ( Plugins::is_loaded( 'Thickbox' ) ) { // Requires svn r2903 or later due to ticket #754
 					    $ui->append( 'fieldset', 'tbfs', 'ThickBox' );
-					    $ui->tbfs->append( 'label', 'tbfs', _t( "You have the Thickbox plugin installed and active, so you can take advantage of it's functionality with the SmugMug Silo if you wish." ) );
+					    //$ui->tbfs->append( 'label', 'tbfs', _t( "If You have the Thickbox available in your theme or via the Thickbox plugin, you can take advantage of it's functionality with the SmugMug Silo if you wish." ) );
 					    $ui->tbfs->append( 'checkbox', 'use_tb', 'user:smugmugsilo__use_thickbox', _t( 'Use Thickbox?' ) );
 					    $ui->tbfs->append( 'select', 'tb_image_size', 'user:smugmugsilo__thickbox_img_size', _t( 'Image size to use for Thickbox (warning: large images are slow to load):' ) );
 						if ( $useTB == FALSE ) {
