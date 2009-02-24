@@ -532,9 +532,13 @@ UPLOAD_FORM;
 					    $config_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Configure' ) ) . '#plugin_options';
 
 					    if( isset( $token ) ){
-							User::identify()->info->smugmugsilo__token = $token;
-							User::identify()->info->smugmugsilo__nickName = $token['User']['NickName'];
-							User::identify()->info->commit();
+							$user = User::identify();
+							$user->info->smugmugsilo__token = $token;
+							$user->info->smugmugsilo__nickName = $token['User']['NickName'];
+							// Set required default config options at the same time - the others are really optional.
+							$user->info->smugmugsilo__image_size = 'S';
+							$user->info->smugmugsilo__use_thickbox = FALSE ;
+							$user->info->commit();
 						    EventLog::log( _t( 'Authorization Confirmed.' ) );
 						    echo '<form><p>'._t( 'Your authorization was set successfully. You can now <b><a href="'.$config_url.'">configure</a></b> the SmugMug Silo to suit your needs.' ).'</p></form>';
 					    }
@@ -596,8 +600,15 @@ UPLOAD_FORM;
     public function action_plugin_deactivation( $file )
     {
 		if ( Plugins::id_from_file( $file ) == Plugins::id_from_file( __FILE__ ) ) {
-			unset( User::identify()->info->smugmugsilo__token );
-			User::identify()->info->commit();
+			// todo: Comment out the options deletion prior to go-live.
+			$user = User::identify();
+			unset( $user->info->smugmugsilo__token );
+			unset( $user->info->smugmugsilo__thickbox_img_size );
+			unset( $user->info->smugmugsilo__custom_size );
+			unset( $user->info->smugmugsilo__image_size );
+			unset( $user->info->smugmugsilo__use_thickbox );
+			unset( $user->info->smugmugsilo__nickName );
+			$user->info->commit();
 			$this->clearCaches();
 			rmdir( $this->smug->cache_dir );
 		}
