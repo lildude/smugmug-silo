@@ -27,7 +27,6 @@
 class SmugMugSilo extends Plugin implements MediaSilo
 {
     const SILO_NAME = 'SmugMug';
-	const DEBUG = FALSE;		// Only change this if you absolutely have to.
 
     const APIKEY = 'woTP74YfM4zRoScpGFdHYPMLRYZSEhl2';
     const OAUTHSECRET = '5a3707ce2c2afadaa5a5e0c1c327ccae';
