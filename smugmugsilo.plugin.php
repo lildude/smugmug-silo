@@ -22,6 +22,7 @@
  *
  * @todo: add debug stuff
  * @todo: Get SmugMugSilo specific API key
+ * @todo: Resolve dropdown button CSS for rectangle thumbs
  */
 
 class SmugMugSilo extends Plugin implements MediaSilo
@@ -632,20 +633,24 @@ UPLOAD_FORM;
 
 		    echo <<< SMUGMUG_ENTRY_CSS_1
 		    <style type="text/css">
-		    div.smugmug ul.mediaactions.dropbutton li { display: inline !important; float:left; width:9%; min-width: 5px; }
-		    div.smugmug ul.mediaactions.dropbutton li.first-child a { background: none !important; }
-		    div.smugmug ul.mediaactions.dropbutton li.first-child:hover { -moz-border-radius-bottomleft: 3px !important;  -webkit-border-bottom-left-radius: 3px !important; -moz-border-radius-topright: 0px !important;  -webkit-border-top-right-radius: 0px !important; }
-		    div.smugmug ul.mediaactions.dropbutton li.last-child { -moz-border-radius-bottomleft: 0px !important;  -webkit-border-bottom-left-radius: 0px !important; border-right: none; }
-		    div.smugmug ul.mediaactions.dropbutton li.last-child:hover { -moz-border-radius-topright: 3px !important;  -webkit-border-top-right-radius: 3px !important; -moz-border-radius-bottomright: 3px !important;  -webkit-border-bottom-right-radius: 3px !important; padding-right: 7px !important; }
+		    div#silo_smugmug ul.mediaactions.dropbutton li { display: inline !important; float:left; width:9%; min-width: 5px; padding: 0 5% !important; }
+		    div#silo_smugmug ul.mediaactions.dropbutton li.first-child a { background: none !important; }
+		    div#silo_smugmug ul.mediaactions.dropbutton li.first-child:hover { -moz-border-radius-bottomleft: 3px !important;  -webkit-border-bottom-left-radius: 3px !important; -moz-border-radius-topright: 0px !important;  -webkit-border-top-right-radius: 0px !important; }
+		    div#silo_smugmug ul.mediaactions.dropbutton li.last-child { -moz-border-radius-bottomleft: 0px !important;  -webkit-border-bottom-left-radius: 0px !important; border-right: none; }
+		    div#silo_smugmug ul.mediaactions.dropbutton li.last-child:hover { -moz-border-radius-topright: 3px !important;  -webkit-border-top-right-radius: 3px !important; -moz-border-radius-bottomright: 3px !important;  -webkit-border-bottom-right-radius: 3px !important; padding-right: 6% !important; }
 		    span.hidden_img { background: transparent url('{$lockicon}') no-repeat 0 50%; width: 16px; height: 32px; float: left;}
 		    </style>
 		    <script type="text/javascript">
 			    /* Get the silo id from the href of the link and add class to that siloid */
+          /* We don't need this as of r3286, but keeping this here just in case someone comes along with an earlier rev */
 			    var siloid = $("a:contains('SmugMug')").attr("href");
+          var silo = $(siloid).find('div.splitterinside');
+          if ($(silo).hasClass('silo_smugmug')) {
+              true;
+          } else {
+              $(silo).attr('id', 'silo_smugmug');
+          }
 			    $(siloid).addClass('smugmug');
-
-			    /* Disable the search box and make it light grey as it's useless to us */
-			    $('.smugmug div.media_controls > input').attr("disabled", true).css("background-color", "#ccc");
 
 			    /* This is a bit of a fudge to over-write the dblclick functionality.
 			       We introduce our own dblclick which inserts the default image size as defined by the user.
