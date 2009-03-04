@@ -413,35 +413,35 @@ SMUGMUG_CONFIG_JS;
 					    $gallery = $this->smug->albums_getInfo( "AlbumID={$gal[0]}",
 																"AlbumKey={$gal[1]}" );
 					    $panel.= <<<UPLOAD_FORM
-<form enctype="multipart/form-data" method="post" id="simple_upload" target="simple_upload_frame" action="{$form_action}" class="span-10" style="margin:0px auto;text-align: center">
-<p><input type="hidden" name="path" value="{$fullpath}">
-    <input type="hidden" name="AlbumID" value="{$gal[0]}">
-    <input type="hidden" name="panel" value="{$panelname}"></p>
-    <p><table style="margin: 0 auto; padding-top:10px; padding:5px; border-spacing: 2px;">
-<tr><td style="text-align:right;">Upload image to:</td><td  style="text-align:right;"><b style="color: #e0e0e0;font-size: 1.2em;">{$gallery['Title']}</b></td></tr>
-<tr><td colspan="2"><input type="file" name="file"></td></tr>
-<tr><td style="padding-top: 5px; text-align:right;">Optional Settings:</td><td>&nbsp;</td></tr>
-<tr><td style="text-align:right;"><label for="caption">Caption:</label></td><td style="text-align:right;"><input type="text" name="Caption" /></td></tr>
-<tr><td style="text-align:right;"><label for="keywords">Keywords:</label></td><td style="text-align:right;"><input type="text" name="Keywords" /></td></tr>
-<tr><td style="text-align:right;padding-top: 5px;"><button onclick="habari.media.forceReload();habari.media.clickdir('SmugMug/{$path}');habari.media.showdir('SmugMug/{$path}'); return false;">Cancel</button></td><td style="text-align:right;padding-top: 5px;"><input type="submit" name="upload" value="Upload" onclick="spinner.start();" /></td></tr>
-</table></p>
-</form>
-<iframe id="simple_upload_frame" name="simple_upload_frame" style="width:1px;height:1px;" onload="simple_uploaded();"></iframe>
-<script type="text/javascript">
-var responsedata;
-function simple_uploaded() {
-    if(!$('#simple_upload_frame')[0].contentWindow) return;
-    var response = $($('#simple_upload_frame')[0].contentWindow.document.body).text();
-    if(response) {
-	    eval('responsedata = ' + response);
-	    window.setTimeout(simple_uploaded_complete, 500);
-    }
-}
-function simple_uploaded_complete() {
-    spinner.stop();
-    habari.media.jsonpanel(responsedata);
-}
-</script>
+						<form enctype="multipart/form-data" method="post" id="simple_upload" target="simple_upload_frame" action="{$form_action}" class="span-10" style="margin:0px auto;text-align: center">
+						<p><input type="hidden" name="path" value="{$fullpath}">
+							<input type="hidden" name="AlbumID" value="{$gal[0]}">
+							<input type="hidden" name="panel" value="{$panelname}"></p>
+							<p><table style="margin: 0 auto; padding-top:10px; padding:5px; border-spacing: 2px;">
+						<tr><td style="text-align:right;">Upload image to:</td><td  style="text-align:right;"><b style="color: #e0e0e0;font-size: 1.2em;">{$gallery['Title']}</b></td></tr>
+						<tr><td colspan="2"><input type="file" name="file"></td></tr>
+						<tr><td style="padding-top: 5px; text-align:right;">Optional Settings:</td><td>&nbsp;</td></tr>
+						<tr><td style="text-align:right;"><label for="caption">Caption:</label></td><td style="text-align:right;"><input type="text" name="Caption" /></td></tr>
+						<tr><td style="text-align:right;"><label for="keywords">Keywords:</label></td><td style="text-align:right;"><input type="text" name="Keywords" /></td></tr>
+						<tr><td style="text-align:right;padding-top: 5px;"><button onclick="habari.media.forceReload();habari.media.clickdir('SmugMug/{$path}');habari.media.showdir('SmugMug/{$path}'); return false;">Cancel</button></td><td style="text-align:right;padding-top: 5px;"><input type="submit" name="upload" value="Upload" onclick="spinner.start();" /></td></tr>
+						</table></p>
+						</form>
+						<iframe id="simple_upload_frame" name="simple_upload_frame" style="width:1px;height:1px;" onload="simple_uploaded();"></iframe>
+						<script type="text/javascript">
+						var responsedata;
+						function simple_uploaded() {
+							if(!$('#simple_upload_frame')[0].contentWindow) return;
+							var response = $($('#simple_upload_frame')[0].contentWindow.document.body).text();
+							if(response) {
+								eval('responsedata = ' + response);
+								window.setTimeout(simple_uploaded_complete, 500);
+							}
+						}
+						function simple_uploaded_complete() {
+							spinner.stop();
+							habari.media.jsonpanel(responsedata);
+						}
+						</script>
 UPLOAD_FORM;
 
 					}
@@ -474,14 +474,6 @@ UPLOAD_FORM;
 	    }
 	    return $actions;
     }
-
-
-
-
-
-
-
-
 
     /**
      * Return a link for the panel at the top of the silo window.
