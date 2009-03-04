@@ -40,8 +40,8 @@ class SmugMugSilo extends Plugin implements MediaSilo
     {
 		return array(
 			'name'			=> 'SmugMug Media Silo',
-			'version'		=> '0.1',
-			'url'			=> 'http://phpsmug.com/smugmug-silo-plugin',
+			'version'		=> '1.0',
+			'url'			=> 'http://www.lildude.co.uk/projects/smugmug-media-silo-plugin',
 			'author'		=> 'Colin Seymour',
 			'authorurl'		=> 'http://www.colinseymour.co.uk/',
 			'license'		=> 'Apache License 2.0',
@@ -599,19 +599,20 @@ UPLOAD_FORM;
      **/
     public function action_plugin_deactivation( $file )
     {
-		if ( Plugins::id_from_file( $file ) == Plugins::id_from_file( __FILE__ ) ) {
-			// todo: Comment out the options deletion prior to go-live.
-			$user = User::identify();
-			unset( $user->info->smugmugsilo__token );
-			unset( $user->info->smugmugsilo__thickbox_img_size );
-			unset( $user->info->smugmugsilo__custom_size );
-			unset( $user->info->smugmugsilo__image_size );
-			unset( $user->info->smugmugsilo__use_thickbox );
-			unset( $user->info->smugmugsilo__nickName );
-			$user->info->commit();
-			$this->clearCaches();
-			rmdir( $this->smug->cache_dir );
-		}
+      if ( Plugins::id_from_file( $file ) == Plugins::id_from_file( __FILE__ ) ) {
+        /* Uncomment to delete options on de-activation
+        $user = User::identify();
+        unset( $user->info->smugmugsilo__token );
+        unset( $user->info->smugmugsilo__thickbox_img_size );
+        unset( $user->info->smugmugsilo__custom_size );
+        unset( $user->info->smugmugsilo__image_size );
+        unset( $user->info->smugmugsilo__use_thickbox );
+        unset( $user->info->smugmugsilo__nickName );
+        $user->info->commit();
+        */
+        $this->clearCaches();
+        rmdir( $this->smug->cache_dir );
+      }
     }
 
     /**
@@ -629,7 +630,7 @@ UPLOAD_FORM;
 		    $nickName = $user->info->smugmugsilo__nickName;
 			$useThickBox = $user->info->smugmugsilo__use_thickbox;
 			$thickBoxSize = $user->info->smugmugsilo__thickbox_img_size;
-			$lockicon = URL::get_from_filesystem( __FILE__ ) . '/lib/imgs/bwlock2.png';
+			$lockicon = URL::get_from_filesystem( __FILE__ ) . '/lib/imgs/lock.png';
 
 		    echo <<< SMUGMUG_ENTRY_CSS_1
 		    <style type="text/css">
