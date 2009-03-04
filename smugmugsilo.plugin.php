@@ -29,8 +29,8 @@ class SmugMugSilo extends Plugin implements MediaSilo
 {
     const SILO_NAME = 'SmugMug';
 
-    const APIKEY = 'woTP74YfM4zRoScpGFdHYPMLRYZSEhl2';
-    const OAUTHSECRET = '5a3707ce2c2afadaa5a5e0c1c327ccae';
+    const APIKEY = '2OSeqHatM6uOQghQssLtkaBUcc9TpLq8';
+    const OAUTHSECRET = 'afc04b3e9650cd342fc91072d939405d';
     const CACHE_EXPIRY = 86400;	// seconds.  This is 24 hours.
 
     /**
@@ -45,7 +45,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 			'author'		=> 'Colin Seymour',
 			'authorurl'		=> 'http://www.colinseymour.co.uk/',
 			'license'		=> 'Apache License 2.0',
-			'description'	=> 'Provides a silo to access your SmugMug photos',
+			'description'	=> _t('Provides a silo to access your SmugMug photos making it easy to include images into posts and pages.'),
 			'copyright'		=> date('Y'),
 			'guid'			=> '4A881D3E-E643-11DD-8D7A-AA9D55D89593'
 		);
