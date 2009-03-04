@@ -645,6 +645,7 @@ UPLOAD_FORM;
                 foreach( $photo as $name => $value ) {
                   $props[$name] = (string) $value;
                   $props['filetype'] = 'smugmug';
+                  // todo: Problem here: we encounter the caption before the filename, so if the caption is empty, we end up with the filename moving one one place.
                   if ( $name == "Caption" ) {
                     $props['Title'] = self::setTitle( $props, $value );
                   }
