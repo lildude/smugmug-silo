@@ -257,11 +257,11 @@ echo <<< SMUGMUG_ENTRY_CSS_2
 
 			    /* todo: need to lazy load this as it's quite slow */
 			    habari.media.preview.smugmug = function(fileindex, fileobj) {
-				    out = '<div class="mediatitle">';
+				    out = '<div class="mediatitle" title="'+ fileobj.Caption +'">';
 				    if (fileobj.Hidden == 1) {
 					    out += '<span class="hidden_img"></span>';	/* This is a bit of a nasty fudge, but it gets the job done. */
 				    }
-				    out += '<a href="' + fileobj.AlbumURL + '" class="medialink" target="_blank">media</a>' + fileobj.Title + '</div><img src="' + fileobj.ThumbURL + '">';
+				    out += '<a href="' + fileobj.AlbumURL + '" class="medialink" target="_blank" title="Go to gallery page on SmugMug">media</a>' + fileobj.TruncTitle + '</div><img src="' + fileobj.ThumbURL + '">';
 				    return out;
 			    }
 		    </script>
@@ -514,7 +514,7 @@ UPLOAD_FORM;
       $token = User::identify()->info->smugmugsilo__token;
       $user  = User::identify()->info->smugmugsilo__nickName;
       $this->smug->setToken( "id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}" );
-      $img_extras = 'Hidden,Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,FileName'; // Grab only the options we need to keep the response small
+      $img_extras = 'FileName,Hidden,Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL'; // Grab only the options we need to keep the response small
       $results = array();
       $section = strtok( $path, '/' );
 
@@ -542,8 +542,12 @@ UPLOAD_FORM;
             foreach( $info as $name => $value ) {
               $props[$name] = (string) $value;
               $props['filetype'] = 'smugmug';
-              if ( $name == "Caption" ) {
-                $props['Title'] = self::setTitle( $props, $value );
+              if ($props['Caption'] != '') {
+                $props['Caption'] = strip_tags($props['Caption']);
+                $props['TruncTitle'] = self::setTitle( $props, $props['Caption'] );
+              } else {
+                $props['TruncTitle'] = self::setTitle( $props, $props['FileName'] );
+                $props['Caption'] = $props['FileName'];
               }
 
               $results[] = new MediaAsset(
@@ -574,9 +578,13 @@ UPLOAD_FORM;
                 foreach( $photo as $name => $value ) {
                   $props[$name] = (string)$value;
                   $props['filetype'] = 'smugmug';
-                  if ( $name == "Caption" ) {
-                    $props['Title'] = self::setTitle( $props, $value );
-                  }
+                }
+                if ($props['Caption'] != '') {
+                  $props['Caption'] = strip_tags($props['Caption']);
+                  $props['TruncTitle'] = self::setTitle( $props, $props['Caption'] );
+                } else {
+                  $props['TruncTitle'] = self::setTitle( $props, $props['FileName'] );
+                  $props['Caption'] = $props['FileName'];
                 }
 
                 $results[] = new MediaAsset(
@@ -630,6 +638,9 @@ UPLOAD_FORM;
             }
             else {
               $props = array( 'Title' => '', 'FileName' => '', 'Hidden' => 0 );
+              $galInfo = $this->smug->albums_getInfo( "AlbumID={$galmeta[0]}",
+                                                      "AlbumKey={$galmeta[1]}");
+              $squareThumbs = $galInfo['SquareThumbs'];
               $photos = $this->smug->images_get( "AlbumID={$galmeta[0]}",
                                  "AlbumKey={$galmeta[1]}",
                                  "Extras={$img_extras}" );
@@ -637,10 +648,13 @@ UPLOAD_FORM;
                 foreach( $photo as $name => $value ) {
                   $props[$name] = (string) $value;
                   $props['filetype'] = 'smugmug';
-                  // todo: Problem here: we encounter the caption before the filename, so if the caption is empty, we end up with the filename moving one one place.
-                  if ( $name == "Caption" ) {
-                    $props['Title'] = self::setTitle( $props, $value );
-                  }
+                }
+                if ($props['Caption'] != '') {
+                  $props['Caption'] = strip_tags($props['Caption']);
+                  $props['TruncTitle'] = self::setTitle( $props, $props['Caption'], $squareThumbs );
+                } else {
+                  $props['TruncTitle'] = self::setTitle( $props, $props['FileName'], $squareThumbs );
+                  $props['Caption'] = $props['FileName'];
                 }
                 
                 $results[] = new MediaAsset(
@@ -769,15 +783,13 @@ UPLOAD_FORM;
 	 * for the title. If the title is empty (ie, there's no caption), we rely
 	 * on the filename.
 	 */
-	private static function setTitle( $props, $value )
+	private static function setTitle( $props, $value, $square )
   {
+    $len = ($square) ? 20 : 25;
 		$val = nl2br( strip_tags( $value ) );
 		$val = explode( '<br />', $val );
-		$props['Title'] = ( $props['Hidden'] == 1 ) ? self::truncate( $val[0], 18 ) : self::truncate( $val[0] );
-		if ( $props['Title'] == '' ) {
-			$props['Title'] = $props['FileName'];
-		}
-		return $props['Title'];
+		$title = ( $props['Hidden'] == 1 ) ? self::truncate( $val[0], $len ) : self::truncate( $val[0], $len );
+		return $title;
 	}
 
 	/**
@@ -827,7 +839,7 @@ UPLOAD_FORM;
      * Function to truncate strings to a set number of characters (23 by default)
      * This is used to truncate the "Title" when displaying the images in the silo
      **/
-    private static function truncate( $string, $max = 22, $replacement = '...' )
+    private static function truncate( $string, $max = 20, $replacement = '...' )
     {
 	    if ( strlen( $string ) <= $max ) {
 		    return $string;
