@@ -19,7 +19,6 @@
 
 /**
  * SmugMug Silo
- * @todo: Images without caption are broken.
  */
 
 class SmugMugSilo extends Plugin implements MediaSilo
@@ -674,7 +673,6 @@ UPLOAD_FORM;
                       true,
                       // If the gallery is NOT public, mark it by preceding with a lock icon
                       // This is a bit of the fudge as the MediaAsset takes an icon argument, but doesn't actually do anything with it.  This would be a great place for it to use it in this case. It would be great if it did.
-                      // @todo: Look into adding the necessary code to Habari so the icon passed to MediaAsset IS used
                       array( 'title' => ( ( $gallery['Public'] == TRUE ) ? '' : '<img src="'.URL::get_from_filesystem( __FILE__ ) . '/lib/imgs/lock.png" style="vertical-align: middle; height:12px; width:12px" title="Private Gallery" /> ' ).$gallery['Title'] )
                       );
             }
