@@ -58,6 +58,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
       $this->smug = new phpSmug( "APIKey=".self::APIKEY,
                      "AppName={$this->info->name}/{$this->info->version}",
                      "OAuthSecret=".self::OAUTHSECRET );
+
       // Enable caching.  This will be for 24 hours, but will be cleared whenever
       // a file is uploaded via this plugin or manually via the silo.
       $this->smug->enableCache( "type=fs",
@@ -538,14 +539,15 @@ UPLOAD_FORM;
                                "ImageKey={$key}",
                                "Extras={$img_extras}" );
             $props = array( 'Title' => '', 'FileName' => '', 'Hidden' => 0 );
+            // TODO: Need to determine if square thumbs are in use here and replace NULL below
             foreach( $info as $name => $value ) {
               $props[$name] = (string) $value;
               $props['filetype'] = 'smugmug';
               if ($props['Caption'] != '') {
                 $props['Caption'] = strip_tags($props['Caption']);
-                $props['TruncTitle'] = self::setTitle( $props, $props['Caption'] );
+                $props['TruncTitle'] = self::setTitle( $props, $props['Caption'], NULL );
               } else {
-                $props['TruncTitle'] = self::setTitle( $props, $props['FileName'] );
+                $props['TruncTitle'] = self::setTitle( $props, $props['FileName'], NULL );
                 $props['Caption'] = $props['FileName'];
               }
 
@@ -570,6 +572,7 @@ UPLOAD_FORM;
             }
             else {
               $props = array( 'Title' => '', 'FileName' => '', 'Hidden' => 0 );
+              // TODO: Need to determine if square thumbs are in use here and replace NULL below
               $photos = $this->smug->images_get( "AlbumID={$galmeta[0]}",
                                  "AlbumKey={$galmeta[1]}",
                                  "Extras={$img_extras}" );
@@ -580,9 +583,9 @@ UPLOAD_FORM;
                 }
                 if ($props['Caption'] != '') {
                   $props['Caption'] = strip_tags($props['Caption']);
-                  $props['TruncTitle'] = self::setTitle( $props, $props['Caption'] );
+                  $props['TruncTitle'] = self::setTitle( $props, $props['Caption'], NULL );
                 } else {
-                  $props['TruncTitle'] = self::setTitle( $props, $props['FileName'] );
+                  $props['TruncTitle'] = self::setTitle( $props, $props['FileName'], NULL );
                   $props['Caption'] = $props['FileName'];
                 }
 
