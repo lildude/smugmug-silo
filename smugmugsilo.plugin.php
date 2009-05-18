@@ -354,7 +354,7 @@ SMUGMUG_CONFIG_JS;
     {
 	    $class = __CLASS__;
 	    if( $silo instanceof $class ) {
-		    $controls['root'] = '';
+		    unset( $controls['root'] );
 		    $controls[] = $this->link_panel( self::SILO_NAME . '/' . $path, 'clearCache', _t( 'ClearCache' ) );
 		    if( User::identify()->can( 'upload_smugmug' ) ) {
 			    if ( strchr( $path, '/' ) ) {
@@ -658,7 +658,7 @@ UPLOAD_FORM;
                   $props['TruncTitle'] = self::setTitle( $props, $props['FileName'], $squareThumbs );
                   $props['Caption'] = $props['FileName'];
                 }
-                
+
                 $results[] = new MediaAsset(
                         self::SILO_NAME . '/photos/' . $photo['id'],
                         false,
@@ -676,7 +676,7 @@ UPLOAD_FORM;
                       true,
                       // If the gallery is NOT public, mark it by preceding with a lock icon
                       // This is a bit of the fudge as the MediaAsset takes an icon argument, but doesn't actually do anything with it.  This would be a great place for it to use it in this case. It would be great if it did.
-                      array( 'title' => ( ( $gallery['Public'] == TRUE ) ? '' : '<img src="'.URL::get_from_filesystem( __FILE__ ) . '/lib/imgs/lock.png" style="vertical-align: middle; height:12px; width:12px" title="Private Gallery" /> ' ).$gallery['Title'] )
+                      array( 'title' => ( ( $gallery['Public'] == TRUE ) ? '' : '<img src="'.URL::get_from_filesystem( __FILE__ ) . '/lib/imgs/lock.png" style="vertical-align: middle; height:12px; width:12px" title="Private Gallery" /> ' ). $gallery['Title'] )
                       );
             }
 
