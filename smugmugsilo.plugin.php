@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
+ * todo@ Test for read-only mode, and if SmugMug is in RO mode, switch access method
  */
 
 /**
@@ -28,6 +29,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
     const APIKEY = '2OSeqHatM6uOQghQssLtkaBUcc9TpLq8';
     const OAUTHSECRET = 'afc04b3e9650cd342fc91072d939405d';
     const CACHE_EXPIRY = 86400;	// seconds.  This is 24 hours.
+    private $status;
 
     /**
     * Provide plugin info to the system
@@ -202,6 +204,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 		    div#silo_smugmug ul.mediaactions.dropbutton li.last-child { -moz-border-radius-bottomleft: 0px !important;  -webkit-border-bottom-left-radius: 0px !important; border-right: none; }
 		    div#silo_smugmug ul.mediaactions.dropbutton li.last-child:hover { -moz-border-radius-topright: 3px !important;  -webkit-border-top-right-radius: 3px !important; -moz-border-radius-bottomright: 3px !important;  -webkit-border-bottom-right-radius: 3px !important; padding-right: 6% !important; }
 		    span.hidden_img { background: transparent url('{$lockicon}') no-repeat 0 50%; width: 16px; height: 32px; float: left;}
+        div#silo_smugmug div.media_controls li.status {color: red; right: 10px; position: fixed; font-weight: bold; }
 		    </style>
 		    <script type="text/javascript">
 			    /* Get the silo id from the href of the link and add class to that siloid */
@@ -361,6 +364,7 @@ SMUGMUG_CONFIG_JS;
 				    $controls[] = $this->link_panel( self::SILO_NAME . '/' . $path, 'upload', _t( 'Upload' ) );
 			    }
 		    }
+        $controls['status'] = $this->status;
 	    }
 	    return $controls;
     }
@@ -513,6 +517,7 @@ UPLOAD_FORM;
     {
       $token = User::identify()->info->smugmugsilo__token;
       $user  = User::identify()->info->smugmugsilo__nickName;
+
       $this->smug->setToken( "id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}" );
       $img_extras = 'FileName,Hidden,Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL'; // Grab only the options we need to keep the response small
       $results = array();
@@ -538,7 +543,7 @@ UPLOAD_FORM;
             $info = $this->smug->images_getInfo( "ImageID={$id}",
                                "ImageKey={$key}",
                                "Extras={$img_extras}" );
-            $props = array( 'Title' => '', 'FileName' => '', 'Hidden' => 0 );
+            $props = array( 'TruncTitle' => '&nbsp;', 'FileName' => '', 'Hidden' => 0 );
             // TODO: Need to determine if square thumbs are in use here and replace NULL below
             foreach( $info as $name => $value ) {
               $props[$name] = (string) $value;
@@ -571,7 +576,7 @@ UPLOAD_FORM;
               $results = Cache::get( $cache_name );
             }
             else {
-              $props = array( 'Title' => '', 'FileName' => '', 'Hidden' => 0 );
+              $props = array( 'TruncTitle' => '&nbsp;', 'FileName' => '', 'Hidden' => 0 );
               // TODO: Need to determine if square thumbs are in use here and replace NULL below
               $photos = $this->smug->images_get( "AlbumID={$galmeta[0]}",
                                  "AlbumKey={$galmeta[1]}",
@@ -639,10 +644,10 @@ UPLOAD_FORM;
               $results = Cache::get( $cache_name );
             }
             else {
-              $props = array( 'Title' => '', 'FileName' => '', 'Hidden' => 0 );
+              $props = array( 'TruncTitle' => '&nbsp;', 'FileName' => '', 'Hidden' => 0 );
               $galInfo = $this->smug->albums_getInfo( "AlbumID={$galmeta[0]}",
                                                       "AlbumKey={$galmeta[1]}");
-              $squareThumbs = $galInfo['SquareThumbs'];
+              $squareThumbs = ( array_key_exists('SquareThumbs', $galInfo ) ) ? $galInfo['SquareThumbs'] : FALSE;
               $photos = $this->smug->images_get( "AlbumID={$galmeta[0]}",
                                  "AlbumKey={$galmeta[1]}",
                                  "Extras={$img_extras}" );
@@ -669,7 +674,22 @@ UPLOAD_FORM;
             }
           } else {
             // Don't need to cache this as it's quick anyway.
-            $galleries = $this->smug->albums_get( "Extras=Public" );
+            // TODO: Test to see if we can get away with using NickName when SmugMug is NOT in Read-Only mode.
+            try {
+              $galleries = $this->smug->albums_get( "Extras=Public" );
+            }
+            catch (Exception $e) {
+              // If SmugMug is in Read-Only mode, we need a NickName.
+              if ($e->getCode() == 99) {
+                  $this->status = 'READ-ONLY MODE'; //TODO: Need to make this persist and update
+                  $galleries = $this->smug->albums_get( "Extras=Public", "NickName=".User::identify()->info->smugmugsilo__nickName );
+              } else {
+                  $this->status = 'ERROR: '.$e->getMessage();
+                  Session::error($e->getMessage());
+                  return false;
+              }
+            }
+
             foreach( $galleries as $gallery ) {
               $results[] = new MediaAsset(
                       self::SILO_NAME . '/galleries/' . (string) $gallery['id'].'_'.$gallery['Key'],
@@ -845,7 +865,7 @@ UPLOAD_FORM;
 	    if ( strlen( $string ) <= $max ) {
 		    return $string;
 	    }
-	    $leave = $max - strlen( $replacement );
+	    $leave = $max - strlen( html_entity_decode( $replacement ) );
 	    return substr_replace( $string, $replacement, $leave );
     }
 
