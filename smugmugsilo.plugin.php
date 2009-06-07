@@ -50,6 +50,17 @@ class SmugMugSilo extends Plugin implements MediaSilo
     }
 
     /**
+     * The help message - it provides a larger explanation of what this plugin
+     * does
+     *
+     * @return string
+     */
+    public function help()
+    {
+            return _t('There is no helping you now.');
+    }
+
+    /**
     * Initialize some internal values when plugin initializes
     */
     public function action_init()
