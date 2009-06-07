@@ -163,7 +163,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
               $ui->image_size->options = array( 'Ti' => 'Tiny', 'Th' => 'Thumbnail', 'S' => 'Small', 'M' => 'Medium', 'L' => 'Large (if available)', 'XL' => 'XLarge (if available)', 'X2' => 'X2Large (if available)', 'X3' => 'X3Large (if available)', 'O' => 'Original (if available)', 'Custom' => 'Custom (Longest edge in px)' );
               // If Thickbox enabled, give option of using it, and what img size to show:
               // Commenting out as people may have their own installation of thickbox and not the plugin
-            // if ( Plugins::is_loaded( 'Thickbox' ) ) { // Requires svn r2903 or later due to ticket #754
+            /* if ( Plugins::is_loaded( 'Thickbox' ) ) { // Requires svn r2903 or later due to ticket #754
                 $ui->append( 'fieldset', 'tbfs', 'ThickBox' );
                 $ui->tbfs->append( 'checkbox', 'use_tb', 'user:smugmugsilo__use_thickbox', _t( 'Use Thickbox?' ) );
                 $ui->tbfs->append( 'select', 'tb_image_size', 'user:smugmugsilo__thickbox_img_size', _t( 'Image size to use for Thickbox (warning: large images are slow to load):' ) );
@@ -171,7 +171,8 @@ class SmugMugSilo extends Plugin implements MediaSilo
                   $ui->tb_image_size->class = 'formcontrol hidden';
                 }
                 $ui->tbfs->tb_image_size->options = array( 'MediumURL' => 'Medium', 'LargeURL' => 'Large (if available)', 'XLargeURL' => 'XLarge (if available)', 'X2LargeURL' => 'X2Large (if available)', 'X3LargeURL' => 'X3Large (if available)', 'OriginalURL' => 'Original (if available)' );
-              // } // End of if is_loaded()
+             } // End of if is_loaded()
+            */
               $ui->append( 'submit', 'save', _t( 'Save Options' ) );
               $ui->set_option( 'success_message', _t( 'Options successfully saved.' ) );
               $ui->out();
@@ -188,13 +189,13 @@ class SmugMugSilo extends Plugin implements MediaSilo
 			$user = User::identify();
 			$size = $user->info->smugmugsilo__image_size;
 		    if ( $size == "Custom" ) {
-				$customSize = $user->info->smugmugsilo__custom_size;
+          $customSize = $user->info->smugmugsilo__custom_size;
 			    $size = "{$customSize}x{$customSize}";
 		    }
 		    $nickName = $user->info->smugmugsilo__nickName;
-			$useThickBox = $user->info->smugmugsilo__use_thickbox;
-			$thickBoxSize = $user->info->smugmugsilo__thickbox_img_size;
-			$lockicon = URL::get_from_filesystem( __FILE__ ) . '/lib/imgs/lock.png';
+        $useThickBox = $user->info->smugmugsilo__use_thickbox;
+        $thickBoxSize = $user->info->smugmugsilo__thickbox_img_size;
+        $lockicon = URL::get_from_filesystem( __FILE__ ) . '/lib/imgs/lock.png';
 
 		    echo <<< SMUGMUG_ENTRY_CSS_1
 		    <style type="text/css">
@@ -258,7 +259,7 @@ echo <<< SMUGMUG_ENTRY_CSS_2
 
 			    }
 
-			    /* todo: need to lazy load this as it's quite slow */
+			    /* TODO: need to lazy load this as it's quite slow */
 			    habari.media.preview.smugmug = function(fileindex, fileobj) {
 				    out = '<div class="mediatitle" title="'+ fileobj.Caption +'">';
 				    if (fileobj.Hidden == 1) {
@@ -329,7 +330,7 @@ SMUGMUG_CONFIG_JS;
     public function action_plugin_deactivation( $file )
     {
       if ( Plugins::id_from_file( $file ) == Plugins::id_from_file( __FILE__ ) ) {
-        /* Uncomment to delete options on de-activation
+        /* Uncomment to delete options on de-activation */
         $user = User::identify();
         unset( $user->info->smugmugsilo__token );
         unset( $user->info->smugmugsilo__thickbox_img_size );
@@ -338,7 +339,7 @@ SMUGMUG_CONFIG_JS;
         unset( $user->info->smugmugsilo__use_thickbox );
         unset( $user->info->smugmugsilo__nickName );
         $user->info->commit();
-        */
+        /* */
         $this->clearCaches();
         rmdir( $this->smug->cache_dir );
       }
@@ -519,7 +520,7 @@ UPLOAD_FORM;
       $user  = User::identify()->info->smugmugsilo__nickName;
 
       $this->smug->setToken( "id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}" );
-      $img_extras = 'FileName,Hidden,Caption,Format,AlbumURL,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL'; // Grab only the options we need to keep the response small
+      $img_extras = 'FileName,Hidden,Caption,Format,Album,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL'; // Grab only the options we need to keep the response small
       $results = array();
       $section = strtok( $path, '/' );
 
@@ -546,16 +547,21 @@ UPLOAD_FORM;
             $props = array( 'TruncTitle' => '&nbsp;', 'FileName' => '', 'Hidden' => 0 );
             // TODO: Need to determine if square thumbs are in use here and replace NULL below
             foreach( $info as $name => $value ) {
-              $props[$name] = (string) $value;
-              $props['filetype'] = 'smugmug';
-              if ($props['Caption'] != '') {
-                $props['Caption'] = strip_tags($props['Caption']);
-                $props['TruncTitle'] = self::setTitle( $props, $props['Caption'], NULL );
+              if ($name == 'Caption') {
+                if ($value != '') {
+                  $props['Caption'] = strip_tags($value);
+                  $props['TruncTitle'] = self::setTitle( $props, $props['Caption'], NULL );
+                } else {
+                  $props['TruncTitle'] = self::setTitle( $props, $props['FileName'], NULL );
+                  $props['Caption'] = $props['FileName'];
+                }
+              } else if ($name == 'Album') {
+                $props['AlbumURL'] = $value['URL'];
               } else {
-                $props['TruncTitle'] = self::setTitle( $props, $props['FileName'], NULL );
-                $props['Caption'] = $props['FileName'];
+                $props[$name] = (string) $value;
               }
-
+              
+              $props['filetype'] = 'smugmug';
               $results[] = new MediaAsset(
                       self::SILO_NAME . '/recentPhotos/' . $id,
                       false,
@@ -581,19 +587,20 @@ UPLOAD_FORM;
               $photos = $this->smug->images_get( "AlbumID={$galmeta[0]}",
                                  "AlbumKey={$galmeta[1]}",
                                  "Extras={$img_extras}" );
-              foreach( $photos['Images'] as $photo ) {
+             foreach( $photos['Images'] as $photo ) {
                 foreach( $photo as $name => $value ) {
-                  $props[$name] = (string)$value;
+                  $props[$name] = (string) $value;
                   $props['filetype'] = 'smugmug';
+                  $props['AlbumURL'] = 'http://'.$user.'.smugmug.com/gallery/'.$galmeta[0].'_'.$galmeta[1].'#'.$photo['id'].'_'.$photo['Key'];
                 }
                 if ($props['Caption'] != '') {
                   $props['Caption'] = strip_tags($props['Caption']);
-                  $props['TruncTitle'] = self::setTitle( $props, $props['Caption'], NULL );
+                  $props['TruncTitle'] = self::setTitle( $props, $props['Caption'], $squareThumbs );
                 } else {
-                  $props['TruncTitle'] = self::setTitle( $props, $props['FileName'], NULL );
+                  $props['TruncTitle'] = self::setTitle( $props, $props['FileName'], $squareThumbs );
                   $props['Caption'] = $props['FileName'];
                 }
-
+                
                 $results[] = new MediaAsset(
                         self::SILO_NAME . '/photos/' . $photo['id'],
                         false,
@@ -655,6 +662,7 @@ UPLOAD_FORM;
                 foreach( $photo as $name => $value ) {
                   $props[$name] = (string) $value;
                   $props['filetype'] = 'smugmug';
+                  $props['AlbumURL'] = 'http://'.$user.'.smugmug.com/gallery/'.$galmeta[0].'_'.$galmeta[1].'#'.$photo['id'].'_'.$photo['Key'];
                 }
                 if ($props['Caption'] != '') {
                   $props['Caption'] = strip_tags($props['Caption']);
