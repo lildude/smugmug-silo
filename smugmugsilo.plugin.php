@@ -60,29 +60,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
      */
     public function help()
     {
-            return _t('There is no helping you now.');
-    }
-
-    /**
-     * Initialize some internal values when plugin initializes
-     * @todo: Move this smugmug instantiation.	
-     */
-    public function action_init()
-    {
-		/*
-      if ( !class_exists( 'phpSmug' ) ) {
-        require_once( dirname( __FILE__ ).'/lib/phpSmug/phpSmug.php' );
-      }
-      $this->smug = new phpSmug( "APIKey=".self::APIKEY,
-                     "AppName={$this->info->name}/{$this->info->version}",
-                     "OAuthSecret=".self::OAUTHSECRET );
-
-      // Enable caching.  This will be for 24 hours, but will be cleared whenever
-      // a file is uploaded via this plugin or manually via the silo.
-      $this->smug->enableCache( "type=fs",
-                    "cache_dir=". HABARI_PATH . '/user/cache/',
-                    "cache_expire=".self::CACHE_EXPIRY );
-		 */
+            return _t('Provides a silo to access your SmugMug photos making it easy to include images into posts and pages and also upload images directly to SmugMug.');
     }
 
     /**
@@ -94,7 +72,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
     public function action_plugin_ui( $plugin_id, $action )
     {
 	    if ( $plugin_id == $this->plugin_id() ){
-			$this->phpSmugInit();
+        $this->phpSmugInit();
 		    switch ( $action ){
 			    case _t( 'Authorize' ):
 				    if( $this->is_auth() ){
