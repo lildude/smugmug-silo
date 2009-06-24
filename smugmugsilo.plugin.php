@@ -37,6 +37,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
     /**
     * Provide plugin info to the system
     */
+	/* Removing for post r3624
     public function info()
     {
       return array(
@@ -50,7 +51,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
         'copyright'		=> date('Y'),
         'guid'			=> '4A881D3E-E643-11DD-8D7A-AA9D55D89593'
       );
-    }
+    }*/
 
     /**
      * The help message - it provides a larger explanation of what this plugin
