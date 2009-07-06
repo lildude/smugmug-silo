@@ -35,25 +35,6 @@ class SmugMugSilo extends Plugin implements MediaSilo
     private $status;
 
     /**
-    * Provide plugin info to the system
-    */
-	/* Removing for post r3624
-    public function info()
-    {
-      return array(
-        'name'			=> 'SmugMug Media Silo',
-        'version'		=> '0.1',
-        'url'			=> 'http://www.lildude.co.uk/projects/smugmug-media-silo-plugin',
-        'author'		=> 'Colin Seymour',
-        'authorurl'		=> 'http://www.colinseymour.co.uk/',
-        'license'		=> 'Apache License 2.0',
-        'description'	=> _t('Provides a silo to access your SmugMug photos making it easy to include images into posts and pages.'),
-        'copyright'		=> date('Y'),
-        'guid'			=> '4A881D3E-E643-11DD-8D7A-AA9D55D89593'
-      );
-    }*/
-
-    /**
      * The help message - it provides a larger explanation of what this plugin
      * does
      *
@@ -62,6 +43,17 @@ class SmugMugSilo extends Plugin implements MediaSilo
     public function help()
     {
             return _t('Provides a silo to access your SmugMug photos making it easy to include images into posts and pages and also upload images directly to SmugMug.');
+    }
+
+    /**
+     * Beacon Support for Update checking
+     *
+     * @access public
+     * @return void
+     */
+    public function action_update_check()
+    {
+		Update::add( 'SmugMugSilo', '4A881D3E-E643-11DD-8D7A-AA9D55D89593', '0.1' );
     }
 
     /**
