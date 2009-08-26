@@ -15,9 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * todo@ Test for read-only mode, and if SmugMug is in RO mode, switch access method
- * todo@ Fix phpSmug double-loading clash with SmugGal plugin
- * todo@ Fix stylesheet clash or similar that causes the Habari Media plugin to break
+ * @todo Test for read-only mode, and if SmugMug is in RO mode, switch access method
+ * @todo Implement NiceName URLs for links
+ * @todo Add image dimensions when adding imgs/links
+ * @todo Tidy up directory structure
+ *
  *
  */
 
@@ -238,7 +240,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 
 			    function insert_smugmug_photo(fileindex, fileobj, filesizeURL) {
 				    if (filesizeURL == "Default") {
-					    filesizeURL = "http://{$nickName}.smugmug.com/photos/"+fileobj.id+"_"+fileobj.Key+"-{$size}."+fileobj.Format;
+					    filesizeURL = "http://{$nickName}.smugmug.com/photos/"+fileobj.id+"_"+fileobj.Key+"-{$size}."+fileobj.Format.toLowerCase();
 				    }
 
 SMUGMUG_ENTRY_CSS_1;
@@ -575,6 +577,7 @@ UPLOAD_FORM;
             else {
               $props = array( 'TruncTitle' => '&nbsp;', 'FileName' => '', 'Hidden' => 0 );
               // TODO: Need to determine if square thumbs are in use here and replace NULL below
+			  // TODO: Switch to NiceName URL structure
               $photos = $this->smug->images_get( "AlbumID={$galmeta[0]}",
                                  "AlbumKey={$galmeta[1]}",
                                  "Extras={$img_extras}" );
