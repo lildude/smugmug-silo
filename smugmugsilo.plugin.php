@@ -184,10 +184,19 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	    if( Controller::get_var( 'page' ) == 'publish' ) {
 			$user = User::identify();
 			$size = $user->info->smugmugsilo__image_size;
+			$dimensions = array(
+				'Ti' => array(100, 100),	// width, height
+				'Th' => array(150, 150),
+				'S' => array(400, 300),
+				'M' => array(600, 450),
+				'L' => array(800, 600),
+				'XL' => array(1024, 768),
+			);
 		    if ( $size == "Custom" ) {
 				$customSize = $user->info->smugmugsilo__custom_size;
 			    $size = "{$customSize}x{$customSize}";
 		    }
+			
 		    $nickName = $user->info->smugmugsilo__nickName;
 			$useThickBox = $user->info->smugmugsilo__use_thickbox;
 			$thickBoxSize = $user->info->smugmugsilo__thickbox_img_size;
@@ -224,31 +233,63 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					    $('.smugmug .media').unbind('dblclick');
 					    $('.smugmug .media').dblclick(function(){
 							    var id = $('.foroutput', this).html();
-							    insert_smugmug_photo(id, habari.media.assets[id], "Default");
+							    insert_smugmug_photo(id, habari.media.assets[id], "Default", "{$size}");
 							    return false;
 					    });
 			    });
 
 			    habari.media.output.smugmug = {
-				    Ti: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.TinyURL);},
-				    Th: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.ThumbURL);},
-				    S: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.SmallURL);},
-				    M: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.MediumURL);},
-				    L: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.LargeURL);}
+				    Ti: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.TinyURL, 'Ti');},
+				    Th: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.ThumbURL, 'Th');},
+				    S: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.SmallURL, 'S');},
+				    M: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.MediumURL, 'M');},
+				    L: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.LargeURL, 'L');}
 			    }
 
 
-			    function insert_smugmug_photo(fileindex, fileobj, filesizeURL) {
+				function insert_smugmug_photo(fileindex, fileobj, filesizeURL, size) {
+					ratio = fileobj.Width/fileobj.Height;
+
+					var dimensions = new Array();
+						dimensions['Ti'] = new Array(100, 100);	// width, height
+						dimensions['Th'] = new Array(150, 150);
+					if ( ratio > 1) {
+						dimensions['S'] = new Array(400, 300);
+						dimensions['M'] = new Array(600, 450);
+						dimensions['L'] = new Array(800, 600);
+						dimensions['XL'] = new Array(1024, 768);
+					} else {
+						dimensions['S'] = new Array(300, 400);
+						dimensions['M'] = new Array(450, 600);
+						dimensions['L'] = new Array(600, 800);
+						dimensions['XL'] = new Array(768, 1024);
+					}
+
+					if (dimensions[(size)] == undefined) {
+						split = size.split('x');
+						if (ratio > 1) {
+							w = split[0];
+							h = Math.round(split[0]/ratio);
+						} else {
+							w = Math.round(split[0]*ratio);
+							h = split[0];
+						}
+						size = (w)+'x'+(h);
+						dimensions[(size)] = new Array(w, h);
+					}
+
 				    if (filesizeURL == "Default") {
-					    filesizeURL = "http://{$nickName}.smugmug.com/photos/"+fileobj.id+"_"+fileobj.Key+"-{$size}."+fileobj.Format.toLowerCase();
+					    filesizeURL = "http://{$nickName}.smugmug.com/photos/"+fileobj.id+"_"+fileobj.Key+"-"+size+"."+fileobj.Format.toLowerCase();
 				    }
+
+								
 
 SMUGMUG_ENTRY_CSS_1;
 
 if ( $useThickBox && Plugins::is_loaded( 'Thickbox' ) ) {
     echo "habari.editor.insertSelection('<a class=\"thickbox\" href=\"' + fileobj.{$thickBoxSize} + '\" title=\"'+ fileobj.Caption + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" /></a>');";
 } else {
-    echo "habari.editor.insertSelection('<a href=\"' + fileobj.AlbumURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" /></a>');";
+    echo "habari.editor.insertSelection('<a href=\"' + fileobj.AlbumURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
 }
 
 echo <<< SMUGMUG_ENTRY_CSS_2
@@ -513,7 +554,7 @@ UPLOAD_FORM;
       $token = User::identify()->info->smugmugsilo__token;
       $user  = User::identify()->info->smugmugsilo__nickName;
       $this->smug->setToken( "id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}" );
-      $img_extras = 'FileName,Hidden,Caption,Format,Album,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL'; // Grab only the options we need to keep the response small
+      $img_extras = 'FileName,Hidden,Caption,Format,Album,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,Width,Height'; // Grab only the options we need to keep the response small
       $results = array();
       $section = strtok( $path, '/' );
 
@@ -647,7 +688,7 @@ UPLOAD_FORM;
             else {
               $props = array( 'TruncTitle' => '&nbsp;', 'FileName' => '', 'Hidden' => 0 );
               $galInfo = $this->smug->albums_getInfo( "AlbumID={$galmeta[0]}",
-                                                      "AlbumKey={$galmeta[1]}");
+                                                      "AlbumKey={$galmeta[1]}" );
               $squareThumbs = ( array_key_exists('SquareThumbs', $galInfo ) ) ? $galInfo['SquareThumbs'] : FALSE;
               $photos = $this->smug->images_get( "AlbumID={$galmeta[0]}",
                                  "AlbumKey={$galmeta[1]}",
@@ -807,8 +848,8 @@ UPLOAD_FORM;
 	 * on the filename.
 	 */
 	private static function setTitle( $props, $value, $square )
-  {
-    $len = ($square) ? 20 : 25;
+	{
+		$len = ($square) ? 20 : 25;
 		$val = nl2br( strip_tags( $value ) );
 		$val = explode( '<br />', $val );
 		$title = ( $props['Hidden'] == 1 ) ? self::truncate( $val[0], $len ) : self::truncate( $val[0], $len );
