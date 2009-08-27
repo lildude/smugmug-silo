@@ -583,6 +583,8 @@ UPLOAD_FORM;
             foreach( $info as $name => $value ) {
               if ($name == 'Caption') {
                 if ($value != '') {
+					$props['Caption'] = nl2br($props['Caption']);
+					$props['Caption'] = preg_replace('/\<br(\s*)?\/?\>/i', " - ", $props['Caption']);
                   $props['Caption'] = strip_tags($value);
                   $props['TruncTitle'] = self::setTitle( $props, $props['Caption'], NULL );
                 } else {
@@ -629,6 +631,8 @@ UPLOAD_FORM;
                   $props['AlbumURL'] = 'http://'.$user.'.smugmug.com/gallery/'.$galmeta[0].'_'.$galmeta[1].'#'.$photo['id'].'_'.$photo['Key'];
                 }
                 if ($props['Caption'] != '') {
+					$props['Caption'] = nl2br($props['Caption']);
+					$props['Caption'] = preg_replace('/\<br(\s*)?\/?\>/i', " - ", $props['Caption']);
                   $props['Caption'] = strip_tags($props['Caption']);
                   $props['TruncTitle'] = self::setTitle( $props, $props['Caption'], $squareThumbs );
                 } else {
@@ -700,6 +704,8 @@ UPLOAD_FORM;
                   $props['AlbumURL'] = 'http://'.$user.'.smugmug.com/gallery/'.$galmeta[0].'_'.$galmeta[1].'#'.$photo['id'].'_'.$photo['Key'];
                 }
                 if ($props['Caption'] != '') {
+					$props['Caption'] = nl2br($props['Caption']);
+					$props['Caption'] = preg_replace('/\<br(\s*)?\/?\>/i', " - ", $props['Caption']);
                   $props['Caption'] = strip_tags($props['Caption']);
                   $props['TruncTitle'] = self::setTitle( $props, $props['Caption'], $squareThumbs );
                 } else {
