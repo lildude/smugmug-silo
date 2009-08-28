@@ -76,14 +76,18 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					    echo '<p>'._t( 'Do you want to ' )."<a href=\"{$deauth_url}\">"._t( 'revoke authorization' ).'</a>?</p>';
 				    } else {
 					    try {
-							$reqToken = $this->smug->auth_getRequestToken();
-							$_SESSION['SmugGalReqToken'] = serialize( $reqToken );
-							$confirm_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'confirm' ) ) . '#plugin_options';
-							  echo '<form><table style="border-spacing: 5px; width: 100%;"><tr><td>'._t( 'To use this plugin, you must authorize Habari to have access to your SmugMug account' ).".</td>";
-							echo "<td><button id='auth' style='margin-left:10px;' onclick=\"window.open('{$this->smug->authorize( "Access=Full", "Permissions=Modify" )}', '_blank').focus();return false;\">"._t( 'Authorize' )."</button></td></tr>";
-							echo '<tr><td>'._t( 'When you have completed the authorization on SmugMug, return here and confirm that the authorization was successful.' )."</td>";
-							echo "<td><button disabled='true' id='conf' style='margin-left:10px;' onclick=\"location.href='{$confirm_url}'; return false;\">"._t( 'Confirm' )."</button></td></tr>";
-							echo '</table></form>';
+                  if ($this->smug->mode == 'read-only') {
+                        echo '<form><p>'._t('SmugMug is currently in read-only mode, so authorization is not possible. Please try again later.').'</p></form>';
+                  } else {
+                    $reqToken = $this->smug->auth_getRequestToken();
+                    $_SESSION['SmugGalReqToken'] = serialize( $reqToken );
+                    $confirm_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'confirm' ) ) . '#plugin_options';
+                      echo '<form><table style="border-spacing: 5px; width: 100%;"><tr><td>'._t( 'To use this plugin, you must authorize Habari to have access to your SmugMug account' ).".</td>";
+                    echo "<td><button id='auth' style='margin-left:10px;' onclick=\"window.open('{$this->smug->authorize( "Access=Full", "Permissions=Modify" )}', '_blank').focus();return false;\">"._t( 'Authorize' )."</button></td></tr>";
+                    echo '<tr><td>'._t( 'When you have completed the authorization on SmugMug, return here and confirm that the authorization was successful.' )."</td>";
+                    echo "<td><button disabled='true' id='conf' style='margin-left:10px;' onclick=\"location.href='{$confirm_url}'; return false;\">"._t( 'Confirm' )."</button></td></tr>";
+                    echo '</table></form>';
+                  }
 						  }
 						catch ( Exception $e ) {
 							//Session::error( $e->getMessage(), 'SmugMug API' );
@@ -115,13 +119,13 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					    $config_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Configure' ) ) . '#plugin_options';
 
 					    if( isset( $token ) ){
-							$user = User::identify();
-							$user->info->smugmugsilo__token = $token;
-							$user->info->smugmugsilo__nickName = $token['User']['NickName'];
-							// Set required default config options at the same time - the others are really optional.
-							$user->info->smugmugsilo__image_size = 'S';
-							$user->info->smugmugsilo__use_thickbox = FALSE ;
-							$user->info->commit();
+                $user = User::identify();
+                $user->info->smugmugsilo__token = $token;
+                $user->info->smugmugsilo__nickName = $token['User']['NickName'];
+                // Set required default config options at the same time - the others are really optional.
+                $user->info->smugmugsilo__image_size = 'S';
+                $user->info->smugmugsilo__use_thickbox = FALSE ;
+                $user->info->commit();
 						    EventLog::log( _t( 'Authorization Confirmed.' ) );
 						    echo '<form><p>'._t( 'Your authorization was set successfully. You can now <b><a href="'.$config_url.'">configure</a></b> the SmugMug Silo to suit your needs.' ).'</p></form>';
 					    }
@@ -360,6 +364,7 @@ SMUGMUG_CONFIG_JS;
 				    $controls[] = $this->link_panel( self::SILO_NAME . '/' . $path, 'upload', _t( 'Upload' ) );
 			    }
 		    }
+        //$controls['status'] = $this->status;
         $controls['status'] = $this->status;
 	    }
 	    return $controls;
@@ -676,20 +681,15 @@ UPLOAD_FORM;
             }
           } else {
             // Don't need to cache this as it's quick anyway.
-            // TODO: Test to see if we can get away with using NickName when SmugMug is NOT in Read-Only mode.
+            // Set NickName as it ensure we still work in read-only mode.
             try {
-              $galleries = $this->smug->albums_get( "Extras=Public" );
+              $galleries = $this->smug->albums_get( "NickName=".User::identify()->info->smugmugsilo__nickName, "Extras=Public" );
+              $this->status = $this->smug->mode;
             }
             catch (Exception $e) {
-              // If SmugMug is in Read-Only mode, we need a NickName.
-              if ($e->getCode() == 99) {
-                  $this->status = 'READ-ONLY MODE'; //TODO: Need to make this persist and update
-                  $galleries = $this->smug->albums_get( "Extras=Public", "NickName=".User::identify()->info->smugmugsilo__nickName );
-              } else {
-                  $this->status = 'ERROR: '.$e->getMessage();
-                  Session::error($e->getMessage());
-                  return false;
-              }
+                $this->status = 'ERROR: '.$e->getMessage();
+                Session::error($e->getMessage());
+                return false;
             }
 
             foreach( $galleries as $gallery ) {
@@ -942,6 +942,8 @@ UPLOAD_FORM;
 		$this->smug->enableCache( "type=fs",
 					"cache_dir=". HABARI_PATH . '/user/cache/',
 					"cache_expire=".self::CACHE_EXPIRY );
+    // Call a method we know will succeed, so we can get the mode set
+    $this->smug->reflection_getMethods();
 	}
 }
 
