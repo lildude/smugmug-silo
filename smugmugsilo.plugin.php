@@ -35,6 +35,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
     const OAUTHSECRET = 'afc04b3e9650cd342fc91072d939405d';
     const CACHE_EXPIRY = 86400;	// seconds.  This is 24 hours.
     private $status;
+    private $version = '0.6r61';
 
     /**
      * The help message - it provides a larger explanation of what this plugin
@@ -55,7 +56,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
      */
     public function action_update_check()
     {
-		Update::add( 'SmugMugSilo', '4A881D3E-E643-11DD-8D7A-AA9D55D89593', '0.1' );
+		Update::add( 'SmugMugSilo', '4A881D3E-E643-11DD-8D7A-AA9D55D89593', $this->version );
     }
 
     /**
