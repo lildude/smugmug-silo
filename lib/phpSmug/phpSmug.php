@@ -6,7 +6,7 @@
  *			 without having to worry about the finer details of the API.
  *
  * @author Colin Seymour <lildood@gmail.com>
- * @version 2.0.2
+ * @version 2.0.3
  * @package phpSmug
  * @license LGPL 3 {@link http://www.gnu.org/copyleft/lgpl.html}
  *
@@ -58,13 +58,15 @@ error_reporting(E_ALL | E_NOTICE);
  * @package phpSmug
  **/
 class phpSmug {
-	var $version = '2.0.2';
+	var $version = '2.0.3';
 	var $cacheType = FALSE;
 	var $SessionID;
 	var $loginType;
 	var $OAuthSecret;
 	var $oauth_signature_method;
 	var $cache_expire = 3600;
+  var $oauth_token;
+  var $mode;
 	var $oauth_token_secret;
 	
 	/**
@@ -347,6 +349,7 @@ class phpSmug {
 			$response = $this->req->sendRequest();
 			if(!PEAR::isError($response) && ($this->req->getResponseCode() == 200)) {
 				$this->response = $this->req->getResponseBody();
+				$this->cache($args, $this->response);
 			} else {
 				if ($this->req->getResponseCode() && $this->req->getResponseCode() != 200) {
 					$msg = 'Request failed. HTTP Reason: '.$this->req->getResponseReason();
@@ -368,8 +371,11 @@ class phpSmug {
 		} else {
 			$this->error_code = FALSE;
             $this->error_msg = FALSE;
-            $this->mode = $this->parsed_response['mode'];
-            $this->cache($args, $this->response);
+
+			// The login calls don't return the mode because you can't login if SmugMug is in read-only mode.
+			if (isset($this->parsed_response['mode'])) {
+				$this->mode = $this->parsed_response['mode'];
+			}
 		}
 		return $this->response;
     }

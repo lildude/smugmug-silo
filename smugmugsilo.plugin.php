@@ -181,11 +181,35 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	    }
     }
 
+
+    public function action_admin_header( $theme )
+    {
+        if( Controller::get_var( 'page' ) == 'publish' ) {
+        // FIXME: Get this working
+              Stack::add( 'admin_header_javascript', URL::get_from_filesystem( __FILE__ ) . '/lib/js/jquery.lazyload.mini.js', 'jquery.lazyload', 'jquery' );
+              Stack::add( 'admin_header_javascript', '$(document).ready(function() {
+                                                        $("img").lazyload({
+                                                             placeholder : "../imgs/grey.gif",
+                                                             container: $(".media_browser")
+                                                         });
+                                                       });
+                                                      ', 'jquery.lazyload.init', 'jquery.lazyload' );
+        }
+    }
     /**
      * Add custom styling and Javascript controls to the footer of the admin interface
      **/
     public function action_admin_footer( $theme ) {
 	    if( Controller::get_var( 'page' ) == 'publish' ) {
+
+      Stack::add( 'admin_header_javascript', URL::get_from_filesystem( __FILE__ ) . '/lib/js/jquery.lazyload.mini.js', 'jquery.lazyload', 'jquery' );
+      Stack::add( 'admin_header_javascript', '
+                                              $("img").lazyload({
+                                                   placeholder : "../imgs/grey.gif",
+                                                   container: $(".mediaphotos")
+                                               });
+                                              ', 'jquery.lazyload.init', 'jquery.lazyload' );
+
 			$user = User::identify();
 			$size = $user->info->smugmugsilo__image_size;
 		    if ( $size == "Custom" ) {
