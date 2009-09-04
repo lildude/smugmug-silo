@@ -15,10 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * @todo Test for read-only mode, and if SmugMug is in RO mode, switch access method
  * @todo Implement NiceName URLs for links
  * @todo Add image dimensions when adding imgs/links
- * @todo Tidy up directory structure
  *
  *
  */
@@ -189,9 +187,9 @@ class SmugMugSilo extends Plugin implements MediaSilo
         // FIXME: Get this working
               Stack::add( 'admin_header_javascript', URL::get_from_filesystem( __FILE__ ) . '/lib/js/jquery.lazyload.mini.js', 'jquery.lazyload', 'jquery' );
               Stack::add( 'admin_header_javascript', '$(document).ready(function() {
-                                                        $(".media_browser img").lazyload({
-                                                             placeholder : "http://devon/~cs125667/habari/user/plugins/smugmugsilo/lib/imgs/grey.gif",
-                                                             container: $(".media_browser")
+                                                        $("img").lazyload({
+                                                             container: $(".media_browser"),
+                                                             failurelimit : 5
                                                          });
                                                        });
                                                       ', 'jquery.lazyload.init', 'jquery.lazyload' );
@@ -376,7 +374,6 @@ SMUGMUG_CONFIG_JS;
     {
 	    $class = __CLASS__;
 	    if( $silo instanceof $class ) {
-		    //unset( $controls['root'] );
 			$controls[] = $this->link_panel( self::SILO_NAME . '/' . $path, 'clearCache', _t( 'ClearCache' ) );
 		    if( User::identify()->can( 'upload_smugmug' ) ) {
 			    if ( strchr( $path, '/' ) ) {
@@ -628,7 +625,7 @@ UPLOAD_FORM;
                         );
                         Utils::firedebug($props);
               }
-              //Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
+              Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
             }
           } else {
             $cache_name = ( array( 'smugmugsilo', "recentgalleries".$user ) );
@@ -835,7 +832,7 @@ UPLOAD_FORM;
     $len = ($square) ? 20 : 25;
 		$val = nl2br( strip_tags( $value ) );
 		$val = explode( '<br />', $val );
-		$title = ( $props['Hidden'] == 1 ) ? self::truncate( $val[0], $len ) : self::truncate( $val[0], $len );
+		$title = ( $props['Hidden'] == 1 ) ? self::truncate( $val[0], $len ) : self::truncate( $val[0], $len-3 );
 		return MultiByte::convert_encoding( $title );
 	}
 
