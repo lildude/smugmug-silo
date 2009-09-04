@@ -34,6 +34,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
     const APIKEY = '2OSeqHatM6uOQghQssLtkaBUcc9TpLq8';
     const OAUTHSECRET = 'afc04b3e9650cd342fc91072d939405d';
     const CACHE_EXPIRY = 86400;	// seconds.  This is 24 hours.
+    var $version = '0.6r63';
     private $status;
 
     /**
@@ -55,7 +56,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
      */
     public function action_update_check()
     {
-		Update::add( 'SmugMugSilo', '4A881D3E-E643-11DD-8D7A-AA9D55D89593', '0.1' );
+		Update::add( 'SmugMugSilo', '4A881D3E-E643-11DD-8D7A-AA9D55D89593', $this->version );
     }
 
     /**
@@ -188,27 +189,21 @@ class SmugMugSilo extends Plugin implements MediaSilo
         // FIXME: Get this working
               Stack::add( 'admin_header_javascript', URL::get_from_filesystem( __FILE__ ) . '/lib/js/jquery.lazyload.mini.js', 'jquery.lazyload', 'jquery' );
               Stack::add( 'admin_header_javascript', '$(document).ready(function() {
-                                                        $("img").lazyload({
-                                                             placeholder : "../imgs/grey.gif",
+                                                        $(".media_browser img").lazyload({
+                                                             placeholder : "http://devon/~cs125667/habari/user/plugins/smugmugsilo/lib/imgs/grey.gif",
                                                              container: $(".media_browser")
                                                          });
                                                        });
                                                       ', 'jquery.lazyload.init', 'jquery.lazyload' );
         }
     }
+ 
     /**
      * Add custom styling and Javascript controls to the footer of the admin interface
      **/
     public function action_admin_footer( $theme ) {
 	    if( Controller::get_var( 'page' ) == 'publish' ) {
 
-      Stack::add( 'admin_header_javascript', URL::get_from_filesystem( __FILE__ ) . '/lib/js/jquery.lazyload.mini.js', 'jquery.lazyload', 'jquery' );
-      Stack::add( 'admin_header_javascript', '
-                                              $("img").lazyload({
-                                                   placeholder : "../imgs/grey.gif",
-                                                   container: $(".mediaphotos")
-                                               });
-                                              ', 'jquery.lazyload.init', 'jquery.lazyload' );
 
 			$user = User::identify();
 			$size = $user->info->smugmugsilo__image_size;
@@ -229,7 +224,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 		    div#silo_smugmug ul.mediaactions.dropbutton li.last-child { -moz-border-radius-bottomleft: 0px !important;  -webkit-border-bottom-left-radius: 0px !important; border-right: none; }
 		    div#silo_smugmug ul.mediaactions.dropbutton li.last-child:hover { -moz-border-radius-topright: 3px !important;  -webkit-border-top-right-radius: 3px !important; -moz-border-radius-bottomright: 3px !important;  -webkit-border-bottom-right-radius: 3px !important; padding-right: 6% !important; }
 		    span.hidden_img { background: transparent url('{$lockicon}') no-repeat 0 50%; width: 16px; height: 32px; float: left;}
-			div#silo_smugmug div.media_controls li.status {color: red; right: 10px; position: fixed; font-weight: bold; }
+			div#silo_smugmug div.media_controls li.status {color: red; right: 10px; position: fixed; font-weight: bold; text-transform: uppercase; }
 		    </style>
 		    <script type="text/javascript">
 			    /* Get the silo id from the href of the link and add class to that siloid */
@@ -272,7 +267,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 				    }
 
 SMUGMUG_ENTRY_CSS_1;
-
+// FIXME: Need to dynamically set the image width and height. At the moment we assume square thumbs
 if ( $useThickBox && Plugins::is_loaded( 'Thickbox' ) ) {
     echo "habari.editor.insertSelection('<a class=\"thickbox\" href=\"' + fileobj.{$thickBoxSize} + '\" title=\"'+ fileobj.Caption + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" /></a>');";
 } else {
@@ -288,7 +283,7 @@ echo <<< SMUGMUG_ENTRY_CSS_2
 				    if (fileobj.Hidden == 1) {
 					    out += '<span class="hidden_img"></span>';	/* This is a bit of a nasty fudge, but it gets the job done. */
 				    }
-				    out += '<a href="' + fileobj.AlbumURL + '" class="medialink" target="_blank" title="Go to gallery page on SmugMug">media</a>' + fileobj.TruncTitle + '</div><img src="' + fileobj.ThumbURL + '">';
+				    out += '<a href="' + fileobj.AlbumURL + '" class="medialink" target="_blank" title="Go to gallery page on SmugMug">media</a>' + fileobj.TruncTitle + '</div><img src="' + fileobj.ThumbURL + '" width=\"100\" height=\"100\" />';
 				    return out;
 			    }
 		    </script>
@@ -388,7 +383,6 @@ SMUGMUG_CONFIG_JS;
 				    $controls[] = $this->link_panel( self::SILO_NAME . '/' . $path, 'upload', _t( 'Upload' ) );
 			    }
 		    }
-        //$controls['status'] = $this->status;
         $controls['status'] = $this->status;
 	    }
 	    return $controls;
@@ -566,23 +560,25 @@ UPLOAD_FORM;
             $info = $this->smug->images_getInfo( "ImageID={$id}",
                                "ImageKey={$key}",
                                "Extras={$img_extras}" );
-            $props = array( 'TruncTitle' => '&nbsp;', 'FileName' => '', 'Hidden' => 0 );
+            $this->status = $this->smug->mode;
+            $props = array( 'TruncTitle' => '&nbsp;', 'FileName' => '&nbsp;', 'Hidden' => 0 );
             // TODO: Need to determine if square thumbs are in use here and replace NULL below
             foreach( $info as $name => $value ) {
               if ($name == 'Caption') {
                 if ($value != '') {
-                  $props['Caption'] = strip_tags($value);
+                  $props['Caption'] = MultiByte::convert_encoding( strip_tags( $value ) );
                   $props['TruncTitle'] = self::setTitle( $props, $props['Caption'], NULL );
                 } else {
                   $props['TruncTitle'] = self::setTitle( $props, $props['FileName'], NULL );
-                  $props['Caption'] = $props['FileName'];
+                  $props['Caption'] = MultiByte::convert_encoding( $props['FileName'] );
                 }
               } else if ($name == 'Album') {
                 $props['AlbumURL'] = $value['URL'];
               } else {
                 $props[$name] = (string) $value;
               }
-              
+
+              unset( $props['FileName'] );
               $props['filetype'] = 'smugmug';
               $results[] = new MediaAsset(
                       self::SILO_NAME . '/recentPhotos/' . $id,
@@ -610,6 +606,7 @@ UPLOAD_FORM;
               $photos = $this->smug->images_get( "AlbumID={$galmeta[0]}",
                                  "AlbumKey={$galmeta[1]}",
                                  "Extras={$img_extras}" );
+              $this->status = $this->smug->mode;
              foreach( $photos['Images'] as $photo ) {
                 foreach( $photo as $name => $value ) {
                   $props[$name] = (string) $value;
@@ -617,20 +614,21 @@ UPLOAD_FORM;
                   $props['AlbumURL'] = 'http://'.$user.'.smugmug.com/gallery/'.$galmeta[0].'_'.$galmeta[1].'#'.$photo['id'].'_'.$photo['Key'];
                 }
                 if ($props['Caption'] != '') {
-                  $props['Caption'] = strip_tags($props['Caption']);
+                  $props['Caption'] = MultiByte::convert_encoding( strip_tags( $props['Caption'] ) );
                   $props['TruncTitle'] = self::setTitle( $props, $props['Caption'], $squareThumbs );
                 } else {
                   $props['TruncTitle'] = self::setTitle( $props, $props['FileName'], $squareThumbs );
-                  $props['Caption'] = $props['FileName'];
+                  $props['Caption'] = MultiByte::convert_encoding( $props['FileName'] );
                 }
-                
+                unset( $props['FileName'] );
                 $results[] = new MediaAsset(
                         self::SILO_NAME . '/photos/' . $photo['id'],
                         false,
                         $props
                         );
+                        Utils::firedebug($props);
               }
-              Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
+              //Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
             }
           } else {
             $cache_name = ( array( 'smugmugsilo', "recentgalleries".$user ) );
@@ -652,6 +650,7 @@ UPLOAD_FORM;
                 list( $id, $key ) = explode( '_', end($idKey ) );
                 $galleries[$j] = $this->smug->albums_getInfo( "AlbumID={$id}",
                                         "AlbumKey={$key}" );
+                $this->status = $this->smug->mode;
                 $j++;
               }
               foreach( $galleries as $gallery ) {
@@ -681,6 +680,7 @@ UPLOAD_FORM;
               $photos = $this->smug->images_get( "AlbumID={$galmeta[0]}",
                                  "AlbumKey={$galmeta[1]}",
                                  "Extras={$img_extras}" );
+             $this->status = $this->smug->mode;
               foreach( $photos['Images'] as $photo ) {
                 foreach( $photo as $name => $value ) {
                   $props[$name] = (string) $value;
@@ -688,20 +688,20 @@ UPLOAD_FORM;
                   $props['AlbumURL'] = 'http://'.$user.'.smugmug.com/gallery/'.$galmeta[0].'_'.$galmeta[1].'#'.$photo['id'].'_'.$photo['Key'];
                 }
                 if ($props['Caption'] != '') {
-                  $props['Caption'] = strip_tags($props['Caption']);
+                  $props['Caption'] = MultiByte::convert_encoding( strip_tags( $props['Caption'] ) );
                   $props['TruncTitle'] = self::setTitle( $props, $props['Caption'], $squareThumbs );
                 } else {
                   $props['TruncTitle'] = self::setTitle( $props, $props['FileName'], $squareThumbs );
-                  $props['Caption'] = $props['FileName'];
+                  $props['Caption'] = MultiByte::convert_encoding( $props['FileName'] );
                 }
-
+                unset( $props['FileName'] );
                 $results[] = new MediaAsset(
                         self::SILO_NAME . '/photos/' . $photo['id'],
                         false,
                         $props
                         );
               }
-            Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
+              Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
             }
           } else {
             // Don't need to cache this as it's quick anyway.
@@ -836,7 +836,7 @@ UPLOAD_FORM;
 		$val = nl2br( strip_tags( $value ) );
 		$val = explode( '<br />', $val );
 		$title = ( $props['Hidden'] == 1 ) ? self::truncate( $val[0], $len ) : self::truncate( $val[0], $len );
-		return $title;
+		return MultiByte::convert_encoding( $title );
 	}
 
 	/**
@@ -901,8 +901,10 @@ UPLOAD_FORM;
 	    if ( strlen( $string ) <= $max ) {
 		    return $string;
 	    }
-	    $leave = $max - strlen( html_entity_decode( $replacement ) );
-	    return substr_replace( $string, $replacement, $leave );
+	    $leave = $max - MultiByte::strlen( html_entity_decode( $replacement ) );
+	    //return substr_replace( $string, $replacement, $leave );
+      return MultiByte::substr( $string, 0, $max ).$replacement;
+
     }
 
 	/**
