@@ -6,7 +6,7 @@
  *			 without having to worry about the finer details of the API.
  *
  * @author Colin Seymour <lildood@gmail.com>
- * @version 2.0.2
+ * @version 2.0.3
  * @package phpSmug
  * @license LGPL 3 {@link http://www.gnu.org/copyleft/lgpl.html}
  *
@@ -58,13 +58,15 @@ error_reporting(E_ALL | E_NOTICE);
  * @package phpSmug
  **/
 class phpSmug {
-	var $version = '2.0.2';
+	var $version = '2.0.3';
 	var $cacheType = FALSE;
 	var $SessionID;
 	var $loginType;
 	var $OAuthSecret;
 	var $oauth_signature_method;
 	var $cache_expire = 3600;
+  var $oauth_token;
+  var $mode;
 	var $oauth_token_secret;
 	
 	/**
@@ -347,6 +349,7 @@ class phpSmug {
 			$response = $this->req->sendRequest();
 			if(!PEAR::isError($response) && ($this->req->getResponseCode() == 200)) {
 				$this->response = $this->req->getResponseBody();
+				$this->cache($args, $this->response);
 			} else {
 				if ($this->req->getResponseCode() && $this->req->getResponseCode() != 200) {
 					$msg = 'Request failed. HTTP Reason: '.$this->req->getResponseReason();
@@ -368,7 +371,11 @@ class phpSmug {
 		} else {
 			$this->error_code = FALSE;
             $this->error_msg = FALSE;
-            $this->cache($args, $this->response);
+
+			// The login calls don't return the mode because you can't login if SmugMug is in read-only mode.
+			if (isset($this->parsed_response['mode'])) {
+				$this->mode = $this->parsed_response['mode'];
+			}
 		}
 		return $this->response;
     }
@@ -575,8 +582,8 @@ class phpSmug {
 				$args = array_merge($args, $arg);
 			} else {
 				$exp = explode('=', $arg, 2);
-				$args[$exp[0]] = $exp[1];
-			}
+                $args[$exp[0]] = $exp[1];
+            }
 		}
 		if ($this->OAuthSecret) {
 			$sig = $this->generate_signature($method, $args);
@@ -595,11 +602,10 @@ class phpSmug {
 			}
 			$args = array_merge($args, $oauth_params);
 		}
-
 		$this->request($method, $args);
-		// pop off the "stat" and "method" parts of the array
-		if (is_array($this->parsed_response)) $output = array_pop($this->parsed_response);
-		
+
+		// pop off the "stat", "mode" and "method" parts of the array as we don't need them anymore.
+        if (is_array($this->parsed_response)) $output = array_pop($this->parsed_response);
 		$output = (count($output) == '1' && is_array($output)) ? array_shift($output) : $output;
 		/* Automatically set token if calling getRequestToken */
 		if ($method == 'auth.getRequestToken') {
