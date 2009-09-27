@@ -173,12 +173,20 @@ class SmugMugSilo extends Plugin implements MediaSilo
              } // End of if is_loaded()
             */
               $ui->append( 'submit', 'submit', _t( 'Save Options' ) );
-              $ui->set_option( 'success_message', _t( 'Options successfully saved.' ) );
+			  $ui->on_success ( array( $this, 'save_config_msg' ) );
+              //$ui->set_option( 'success_message', _t( 'Options successfully saved.' ) );
               $ui->out();
           break;
 		    }
 	    }
     }
+
+	public static function save_config_msg( $ui )
+	{
+		$ui->save();
+		Session::notice( _t( 'Options successfully saved.' ) );
+		return false;
+	}
 
 
     public function action_admin_header( $theme )
