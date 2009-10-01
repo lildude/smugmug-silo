@@ -126,6 +126,8 @@ class SmugMugSilo extends Plugin implements MediaSilo
 							// Set required default config options at the same time - the others are really optional.
 							$user->info->smugmugsilo__image_size = 'S';
 							$user->info->smugmugsilo__use_thickbox = FALSE ;
+							$user->info->smugmugsilo__link_to = 'nothing';
+							
 							$user->info->commit();
 						    EventLog::log( _t( 'Authorization Confirmed.' ) );
 						    echo '<form><p>'._t( 'Your authorization was set successfully. You can now <b><a href="'.$config_url.'">configure</a></b> the SmugMug Silo to suit your needs.' ).'</p></form>';
@@ -154,7 +156,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					$customSize = $user->info->smugmugsilo__custom_size;
 					$imageSize = $user->info->smugmugsilo__image_size;
 					$useTB = $user->info->smugmugsilo__use_thickbox;
-					$imgSizes = array( 'Ti' => 'Tiny', 'Th' => 'Thumbnail', 'S' => 'Small', 'M' => 'Medium', 'L' => 'Large (if available)', 'XL' => 'XLarge (if available)', 'X2' => 'X2Large (if available)', 'X3' => 'X3Large (if available)', 'O' => 'Original (if available)', 'Custom' => 'Custom (Longest edge in px)' );
+					$imgSizes = array( 'Ti' => _t( 'Tiny' ), 'Th' => _t( 'Thumbnail' ), 'S' => _t( 'Small' ), 'M' => _t( 'Medium' ), 'L' => _t( 'Large (if available)' ), 'XL' => _t( 'XLarge (if available)' ), 'X2' => _t( 'X2Large (if available)' ), 'X3' => _t( 'X3Large (if available)' ), 'O' => _t( 'Original (if available)' ), 'Custom' => _t( 'Custom (Longest edge in px)' ) );
 
 					$ui = new FormUI( strtolower( get_class( $this ) ) );
 					$ui->append( 'select', 'image_size','user:smugmugsilo__image_size', _t( 'Default size for images in Posts:' ) );
@@ -170,10 +172,10 @@ class SmugMugSilo extends Plugin implements MediaSilo
 											'image' => _t( 'Larger Image'),
 											'smugmug' => _t( 'SmugMug Gallery' )
 											);
-
+					/* TODO: Coming soon
 					if ( Plugins::is_loaded( 'SmugGal' ) ) {
 						$link_to_array['smuggal'] = _t( 'SmugGal Gallery' );
-					}
+					} */
 
 					$ui->append( 'select', 'link_to', 'user:smugmugsilo__link_to', _t( 'Link to:' ) );
 						$ui->link_to->options = $link_to_array;
@@ -181,6 +183,10 @@ class SmugMugSilo extends Plugin implements MediaSilo
 						$ui->link_to_size->options = $imgSizes;
 					if ($user->info->smugmugsilo__link_to != 'image') {
 						$ui->link_to_size->class = 'formcontrol hidden';
+					}
+					$ui->append( 'text', 'link_to_custom_size', 'user:smugmugsilo__link_to_custom_size', _t( 'Custom Size of Longest Edge (px):' ) );
+					if ( $ui->info->smugmugsilo__link_to_size != 'Custom' ) {
+						$ui->link_to_custom_size->class = 'formcontrol hidden';
 					}
 					// If Thickbox enabled, give option of using it, and what img size to show:
 					// Commenting out as people may have their own installation of thickbox and not the plugin
@@ -203,21 +209,6 @@ class SmugMugSilo extends Plugin implements MediaSilo
     }
 
 
-    public function action_admin_header( $theme )
-    {
-        if( Controller::get_var( 'page' ) == 'publish' ) {
-        // FIXME: Get this working
-              Stack::add( 'admin_header_javascript', URL::get_from_filesystem( __FILE__ ) . '/lib/js/jquery.lazyload.mini.js', 'jquery.lazyload', 'jquery' );
-              Stack::add( 'admin_header_javascript', '$(document).ready(function() {
-                                                        $("img").lazyload({
-                                                             container: $(".media_browser"),
-                                                             failurelimit : 5
-                                                         });
-                                                       });
-                                                      ', 'jquery.lazyload.init', 'jquery.lazyload' );
-        }
-    }
- 
     /**
      * Add custom styling and Javascript controls to the footer of the admin interface
      **/
@@ -227,6 +218,8 @@ class SmugMugSilo extends Plugin implements MediaSilo
 
 			$user = User::identify();
 			$size = $user->info->smugmugsilo__image_size;
+			$sizeURL = array( 'Ti' => 'TinyURL', 'Th' => 'ThumbnailURL', 'S' => 'SmallURL', 'M' => 'MediumURL', 'L' => 'LargeURL', 'XL' => 'XLargeURL', 'X2' => 'X2LargeURL', 'X3' => 'X3LargeURL', 'Original' => 'OriginalURL', 'Custom' => 'Custom' );
+
 			$dimensions = array(
 				'Ti' => array(100, 100),	// width, height
 				'Th' => array(150, 150),
@@ -289,7 +282,6 @@ class SmugMugSilo extends Plugin implements MediaSilo
 				    L: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.LargeURL, 'L');}
 			    }
 
-				// FIXME: These dimensions don't account for scaling. They need to use the ratio calculated
 				function insert_smugmug_photo(fileindex, fileobj, filesizeURL, size) {
 					ratio = fileobj.Width/fileobj.Height;
 
@@ -297,15 +289,15 @@ class SmugMugSilo extends Plugin implements MediaSilo
 						dimensions['Ti'] = new Array(100, 100);	// width, height
 						dimensions['Th'] = new Array(150, 150);
 					if ( ratio > 1) {
-						dimensions['S'] = new Array(400, 300);
-						dimensions['M'] = new Array(600, 450);
-						dimensions['L'] = new Array(800, 600);
-						dimensions['XL'] = new Array(1024, 768);
+						dimensions['S'] = new Array(400, Math.ceil(400/ratio));
+						dimensions['M'] = new Array(600, Math.ceil(600/ratio));
+						dimensions['L'] = new Array(800, Math.ceil(800/ratio));
+						dimensions['XL'] = new Array(1024, Math.ceil(1024/ratio));
 					} else {
-						dimensions['S'] = new Array(300, 400);
-						dimensions['M'] = new Array(450, 600);
-						dimensions['L'] = new Array(600, 800);
-						dimensions['XL'] = new Array(768, 1024);
+						dimensions['S'] = new Array(Math.ceil(300*ratio), 300);
+						dimensions['M'] = new Array(Math.ceil(450*ratio), 450);
+						dimensions['L'] = new Array(Math.ceil(600*ratio), 600);
+						dimensions['XL'] = new Array(Math.ceil(768*ratio), 768);
 					}
 
 					if (dimensions[(size)] == undefined) {
@@ -333,14 +325,14 @@ switch ($user->info->smugmugsilo__link_to) {
 	case 'nothing':
 		echo "habari.editor.insertSelection('<img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" />');";
 	break;
-	case 'image':
-		echo "habari.editor.insertSelection('<a href=\"' + fileobj.{$user->info->smugmugsilo__link_to_size} + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
+	case 'image':	// FIXME: Get this working with custom sizes
+		echo "habari.editor.insertSelection('<a href=\"' + filesizeURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
 	break;
 	case 'smugmug':
 		echo "habari.editor.insertSelection('<a href=\"' + fileobj.AlbumURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
 	break;
-	case 'smuggal':
-
+	case 'smuggal': // TODO: Coming one day
+		echo "habari.editor.insertSelection('<a href=\"' + fileobj.AlbumURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
 	break;
 }
 /*
@@ -413,6 +405,20 @@ SMUGMUG_AUTH_JS;
 					    }
 				    });
 
+					if ($("#link_to_size select :selected").val() == 'Custom') {
+					    $("#link_to_custom_size").removeClass("hidden");
+						    } else {
+					    $("#link_to_custom_size").addClass("hidden");
+
+					    }
+				    $("#link_to_size select").change(function () {
+					    if (this.value == "Custom") {
+						    $("#link_to_custom_size").removeClass("hidden");
+					    } else {
+						    $("#link_to_custom_size").addClass("hidden");
+					    }
+				    });
+					
 				    if ($("#use_tb input[type=checkbox]").is(":checked")) {
 					    $("#tb_image_size").removeClass("hidden");
 						    } else {
