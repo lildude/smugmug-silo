@@ -339,7 +339,9 @@ switch ($user->info->smugmugsilo__link_to) {
 		echo "habari.editor.insertSelection('<a href=\"' + fileobj.AlbumURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
 	break;
 	case 'smuggal': // TODO: Coming one day
-		echo "habari.editor.insertSelection('<a href=\"' + fileobj.AlbumURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
+		$smuggalOpts = Options::get('smuggal__options');
+		$url_root = $smuggalOpts['url_root'];
+		echo "habari.editor.insertSelection('<a href=\"{$url_root}/' + fileobj.NiceName + '#' + fileobj.id + '_' + fileobj.Key + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
 	break;
 }
 /*
@@ -679,6 +681,8 @@ UPLOAD_FORM;
               } else {
                 $props[$name] = (string) $value;
               }
+			  // Grab the NiceName for the Album - this is a bit intensive as we need to perform this call for each img
+			  // TODO
 
               unset( $props['FileName'] );
               $props['filetype'] = 'smugmug';
@@ -796,6 +800,7 @@ UPLOAD_FORM;
                   $props['TruncTitle'] = self::setTitle( $props, $props['FileName'], $squareThumbs );
                   $props['Caption'] = MultiByte::convert_encoding( $props['FileName'] );
                 }
+				$props['NiceName'] = $galInfo['NiceName'];
                 unset( $props['FileName'] );
                 $results[] = new MediaAsset(
                         self::SILO_NAME . '/photos/' . $photo['id'],
