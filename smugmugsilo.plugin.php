@@ -17,7 +17,9 @@
  *
  * @todo Implement NiceName URLs for links
  * @todo Add image dimensions when adding imgs/links
- *
+ * @todo Cater for Captionless images in silo bar
+ * @todo Get dimensions correct on inserted code
+ * @todo Add option to link to SmugMug Gallery, Larger image or SmugGal gallery page
  *
  */
 
@@ -118,13 +120,15 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					    $config_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Configure' ) ) . '#plugin_options';
 
 					    if( isset( $token ) ){
-                $user = User::identify();
-                $user->info->smugmugsilo__token = $token;
-                $user->info->smugmugsilo__nickName = $token['User']['NickName'];
-                // Set required default config options at the same time - the others are really optional.
-                $user->info->smugmugsilo__image_size = 'S';
-                $user->info->smugmugsilo__use_thickbox = FALSE ;
-                $user->info->commit();
+							$user = User::identify();
+							$user->info->smugmugsilo__token = $token;
+							$user->info->smugmugsilo__nickName = $token['User']['NickName'];
+							// Set required default config options at the same time - the others are really optional.
+							$user->info->smugmugsilo__image_size = 'S';
+							$user->info->smugmugsilo__use_thickbox = FALSE ;
+							$user->info->smugmugsilo__link_to = 'nothing';
+							
+							$user->info->commit();
 						    EventLog::log( _t( 'Authorization Confirmed.' ) );
 						    echo '<form><p>'._t( 'Your authorization was set successfully. You can now <b><a href="'.$config_url.'">configure</a></b> the SmugMug Silo to suit your needs.' ).'</p></form>';
 					    }
@@ -136,47 +140,70 @@ class SmugMugSilo extends Plugin implements MediaSilo
 				break;
 
 			    case _t( 'De-Authorize' ):
-            User::identify()->info->smugmugsilo__token = '';
-            User::identify()->info->commit();
-            // Clear the cache
-            $this->clearCaches();
-              $reauth_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Authorize' ) ) . '#plugin_options';
-              echo '<form><p>'._t( 'The SmugMug Silo Plugin authorization has been deleted. Please ensure you revoke access from your SmugMug Control Panel too.' ).'<p>';
-              echo "<p>"._t( 'Do you want to ' )."<b><a href=\"{$reauth_url}\">"._t( 're-authorize this plugin' )."</a></b>?<p></form>";
-              EventLog::log( _t( 'De-authorized' ) );
+					User::identify()->info->smugmugsilo__token = '';
+					User::identify()->info->commit();
+					// Clear the cache
+					$this->clearCaches();
+					$reauth_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Authorize' ) ) . '#plugin_options';
+					echo '<form><p>'._t( 'The SmugMug Silo Plugin authorization has been deleted. Please ensure you revoke access from your SmugMug Control Panel too.' ).'<p>';
+					echo "<p>"._t( 'Do you want to ' )."<b><a href=\"{$reauth_url}\">"._t( 're-authorize this plugin' )."</a></b>?<p></form>";
+					EventLog::log( _t( 'De-authorized' ) );
 				break;
 
 			    case _t( 'Configure' ) :
-            $user = User::identify();
-            $token = $user->info->smugmugsilo__token;
-            $customSize = $user->info->smugmugsilo__custom_size;
-            $imageSize = $user->info->smugmugsilo__image_size;
-            $useTB = $user->info->smugmugsilo__use_thickbox;
+					$user = User::identify();
+					$token = $user->info->smugmugsilo__token;
+					$customSize = $user->info->smugmugsilo__custom_size;
+					$imageSize = $user->info->smugmugsilo__image_size;
+					$useTB = $user->info->smugmugsilo__use_thickbox;
+					$imgSizes = array( 'Ti' => _t( 'Tiny' ), 'Th' => _t( 'Thumbnail' ), 'S' => _t( 'Small' ), 'M' => _t( 'Medium' ), 'L' => _t( 'Large (if available)' ), 'XL' => _t( 'XLarge (if available)' ), 'X2' => _t( 'X2Large (if available)' ), 'X3' => _t( 'X3Large (if available)' ), 'O' => _t( 'Original (if available)' ), 'Custom' => _t( 'Custom (Longest edge in px)' ) );
 
-              $ui = new FormUI( strtolower( get_class( $this ) ) );
-              $ui->append( 'select', 'image_size','user:smugmugsilo__image_size', _t( 'Default size for images in Posts:' ) );
-              $ui->append( 'text', 'custom_size', 'user:smugmugsilo__custom_size', _t( 'Custom Size of Longest Edge (px):' ) );
-            if ( $imageSize != 'Custom' ) {
-                $ui->custom_size->class = 'formcontrol hidden';
-              }
-              $ui->image_size->options = array( 'Ti' => 'Tiny', 'Th' => 'Thumbnail', 'S' => 'Small', 'M' => 'Medium', 'L' => 'Large (if available)', 'XL' => 'XLarge (if available)', 'X2' => 'X2Large (if available)', 'X3' => 'X3Large (if available)', 'O' => 'Original (if available)', 'Custom' => 'Custom (Longest edge in px)' );
-              // If Thickbox enabled, give option of using it, and what img size to show:
-              // Commenting out as people may have their own installation of thickbox and not the plugin
-            /* if ( Plugins::is_loaded( 'Thickbox' ) ) { // Requires svn r2903 or later due to ticket #754
-                $ui->append( 'fieldset', 'tbfs', 'ThickBox' );
-                $ui->tbfs->append( 'checkbox', 'use_tb', 'user:smugmugsilo__use_thickbox', _t( 'Use Thickbox?' ) );
-                $ui->tbfs->append( 'select', 'tb_image_size', 'user:smugmugsilo__thickbox_img_size', _t( 'Image size to use for Thickbox (warning: large images are slow to load):' ) );
-              if ( $useTB == FALSE ) {
-                  $ui->tb_image_size->class = 'formcontrol hidden';
-                }
-                $ui->tbfs->tb_image_size->options = array( 'MediumURL' => 'Medium', 'LargeURL' => 'Large (if available)', 'XLargeURL' => 'XLarge (if available)', 'X2LargeURL' => 'X2Large (if available)', 'X3LargeURL' => 'X3Large (if available)', 'OriginalURL' => 'Original (if available)' );
-             } // End of if is_loaded()
-            */
-              $ui->append( 'submit', 'submit', _t( 'Save Options' ) );
-			  $ui->on_success ( array( $this, 'save_config_msg' ) );
-              //$ui->set_option( 'success_message', _t( 'Options successfully saved.' ) );
-              $ui->out();
-          break;
+					$ui = new FormUI( strtolower( get_class( $this ) ) );
+					$ui->append( 'select', 'image_size','user:smugmugsilo__image_size', _t( 'Default size for images in Posts:' ) );
+					$ui->append( 'text', 'custom_size', 'user:smugmugsilo__custom_size', _t( 'Custom Size of Longest Edge (px):' ) );
+					if ( $imageSize != 'Custom' ) {
+						$ui->custom_size->class = 'formcontrol hidden';
+					}
+					$ui->image_size->options = $imgSizes;
+
+
+					$link_to_array = array (
+											'nothing' => _t( 'Nothing'),
+											'image' => _t( 'Larger Image'),
+											'smugmug' => _t( 'SmugMug Gallery' )
+											);
+					/* TODO: Coming soon
+					if ( Plugins::is_loaded( 'SmugGal' ) ) {
+						$link_to_array['smuggal'] = _t( 'SmugGal Gallery' );
+					} */
+
+					$ui->append( 'select', 'link_to', 'user:smugmugsilo__link_to', _t( 'Link to:' ) );
+						$ui->link_to->options = $link_to_array;
+					$ui->append( 'select', 'link_to_size', 'user:smugmugsilo__link_to_size', _t( '"Link to" Size of Longest Edge (px):' ) );
+						$ui->link_to_size->options = $imgSizes;
+					if ($user->info->smugmugsilo__link_to != 'image') {
+						$ui->link_to_size->class = 'formcontrol hidden';
+					}
+					$ui->append( 'text', 'link_to_custom_size', 'user:smugmugsilo__link_to_custom_size', _t( 'Custom Size of Longest Edge (px):' ) );
+					if ( $ui->info->smugmugsilo__link_to_size != 'Custom' ) {
+						$ui->link_to_custom_size->class = 'formcontrol hidden';
+					}
+					// If Thickbox enabled, give option of using it, and what img size to show:
+					// Commenting out as people may have their own installation of thickbox and not the plugin
+					/* if ( Plugins::is_loaded( 'Thickbox' ) ) { // Requires svn r2903 or later due to ticket #754
+					$ui->append( 'fieldset', 'tbfs', 'ThickBox' );
+					$ui->tbfs->append( 'checkbox', 'use_tb', 'user:smugmugsilo__use_thickbox', _t( 'Use Thickbox?' ) );
+					$ui->tbfs->append( 'select', 'tb_image_size', 'user:smugmugsilo__thickbox_img_size', _t( 'Image size to use for Thickbox (warning: large images are slow to load):' ) );
+					if ( $useTB == FALSE ) {
+					  $ui->tb_image_size->class = 'formcontrol hidden';
+					}
+					$ui->tbfs->tb_image_size->options = array( 'MediumURL' => 'Medium', 'LargeURL' => 'Large (if available)', 'XLargeURL' => 'XLarge (if available)', 'X2LargeURL' => 'X2Large (if available)', 'X3LargeURL' => 'X3Large (if available)', 'OriginalURL' => 'Original (if available)' );
+					} // End of if is_loaded()
+					*/
+					$ui->append( 'submit', 'submit', _t( 'Save Options' ) );
+					$ui->set_option( 'success_message', _t( 'Options successfully saved.' ) );
+					$ui->out();
+				break;
 		    }
 	    }
     }
@@ -189,21 +216,6 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	}
 
 
-    public function action_admin_header( $theme )
-    {
-        if( Controller::get_var( 'page' ) == 'publish' ) {
-        // FIXME: Get this working
-              Stack::add( 'admin_header_javascript', URL::get_from_filesystem( __FILE__ ) . '/lib/js/jquery.lazyload.mini.js', 'jquery.lazyload', 'jquery' );
-              Stack::add( 'admin_header_javascript', '$(document).ready(function() {
-                                                        $("img").lazyload({
-                                                             container: $(".media_browser"),
-                                                             failurelimit : 5
-                                                         });
-                                                       });
-                                                      ', 'jquery.lazyload.init', 'jquery.lazyload' );
-        }
-    }
- 
     /**
      * Add custom styling and Javascript controls to the footer of the admin interface
      **/
@@ -213,6 +225,8 @@ class SmugMugSilo extends Plugin implements MediaSilo
 
 			$user = User::identify();
 			$size = $user->info->smugmugsilo__image_size;
+			$sizeURL = array( 'Ti' => 'TinyURL', 'Th' => 'ThumbnailURL', 'S' => 'SmallURL', 'M' => 'MediumURL', 'L' => 'LargeURL', 'XL' => 'XLargeURL', 'X2' => 'X2LargeURL', 'X3' => 'X3LargeURL', 'Original' => 'OriginalURL', 'Custom' => 'Custom' );
+
 			$dimensions = array(
 				'Ti' => array(100, 100),	// width, height
 				'Th' => array(150, 150),
@@ -275,7 +289,6 @@ class SmugMugSilo extends Plugin implements MediaSilo
 				    L: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.LargeURL, 'L');}
 			    }
 
-
 				function insert_smugmug_photo(fileindex, fileobj, filesizeURL, size) {
 					ratio = fileobj.Width/fileobj.Height;
 
@@ -283,15 +296,15 @@ class SmugMugSilo extends Plugin implements MediaSilo
 						dimensions['Ti'] = new Array(100, 100);	// width, height
 						dimensions['Th'] = new Array(150, 150);
 					if ( ratio > 1) {
-						dimensions['S'] = new Array(400, 300);
-						dimensions['M'] = new Array(600, 450);
-						dimensions['L'] = new Array(800, 600);
-						dimensions['XL'] = new Array(1024, 768);
+						dimensions['S'] = new Array(400, Math.ceil(400/ratio));
+						dimensions['M'] = new Array(600, Math.ceil(600/ratio));
+						dimensions['L'] = new Array(800, Math.ceil(800/ratio));
+						dimensions['XL'] = new Array(1024, Math.ceil(1024/ratio));
 					} else {
-						dimensions['S'] = new Array(300, 400);
-						dimensions['M'] = new Array(450, 600);
-						dimensions['L'] = new Array(600, 800);
-						dimensions['XL'] = new Array(768, 1024);
+						dimensions['S'] = new Array(Math.ceil(300*ratio), 300);
+						dimensions['M'] = new Array(Math.ceil(450*ratio), 450);
+						dimensions['L'] = new Array(Math.ceil(600*ratio), 600);
+						dimensions['XL'] = new Array(Math.ceil(768*ratio), 768);
 					}
 
 					if (dimensions[(size)] == undefined) {
@@ -315,11 +328,26 @@ class SmugMugSilo extends Plugin implements MediaSilo
 
 SMUGMUG_ENTRY_CSS_1;
 // FIXME: Need to dynamically set the image width and height. At the moment we assume square thumbs
+switch ($user->info->smugmugsilo__link_to) {
+	case 'nothing':
+		echo "habari.editor.insertSelection('<img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" />');";
+	break;
+	case 'image':	// FIXME: Get this working with custom sizes
+		echo "habari.editor.insertSelection('<a href=\"' + filesizeURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
+	break;
+	case 'smugmug':
+		echo "habari.editor.insertSelection('<a href=\"' + fileobj.AlbumURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
+	break;
+	case 'smuggal': // TODO: Coming one day
+		echo "habari.editor.insertSelection('<a href=\"' + fileobj.AlbumURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
+	break;
+}
+/*
 if ( $useThickBox && Plugins::is_loaded( 'Thickbox' ) ) {
     echo "habari.editor.insertSelection('<a class=\"thickbox\" href=\"' + fileobj.{$thickBoxSize} + '\" title=\"'+ fileobj.Caption + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" /></a>');";
 } else {
     echo "habari.editor.insertSelection('<a href=\"' + fileobj.AlbumURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
-}
+}*/
 
 echo <<< SMUGMUG_ENTRY_CSS_2
 
@@ -370,6 +398,34 @@ SMUGMUG_AUTH_JS;
 					    }
 				    });
 
+				    if ($("#link_to select :selected").val() == 'image') {
+					    $("#link_to_size").removeClass("hidden");
+						    } else {
+					    $("#link_to_size").addClass("hidden");
+
+					    }
+				    $("#link_to select").change(function () {
+					    if (this.value == "image") {
+						    $("#link_to_size").removeClass("hidden");
+					    } else {
+						    $("#link_to_size").addClass("hidden");
+					    }
+				    });
+
+					if ($("#link_to_size select :selected").val() == 'Custom') {
+					    $("#link_to_custom_size").removeClass("hidden");
+						    } else {
+					    $("#link_to_custom_size").addClass("hidden");
+
+					    }
+				    $("#link_to_size select").change(function () {
+					    if (this.value == "Custom") {
+						    $("#link_to_custom_size").removeClass("hidden");
+					    } else {
+						    $("#link_to_custom_size").addClass("hidden");
+					    }
+				    });
+					
 				    if ($("#use_tb input[type=checkbox]").is(":checked")) {
 					    $("#tb_image_size").removeClass("hidden");
 						    } else {
