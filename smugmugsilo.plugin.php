@@ -204,9 +204,16 @@ class SmugMugSilo extends Plugin implements MediaSilo
 		return false;
 	}
 
+	/**
+ 	 * Add custom styling to admin interface
+	 */
+	public function action_admin_header( $theme )
+	{
+		Stack::add( 'admin_stylesheet', array( URL::get_from_filesystem( __FILE__ ) . '/lib/css/admin.css', 'screen'), 'admin-css' );
+	}
 
     /**
-     * Add custom styling and Javascript controls to the footer of the admin interface
+     * Add custom Javascript controls to the footer of the admin interface
      **/
     public function action_admin_footer( $theme ) {
 	    if( Controller::get_var( 'page' ) == 'publish' ) {
@@ -225,32 +232,25 @@ class SmugMugSilo extends Plugin implements MediaSilo
 			$lockicon = URL::get_from_filesystem( __FILE__ ) . '/lib/imgs/lock.png';
 
 		    echo <<< SMUGMUG_ENTRY_CSS_1
-		    <style type="text/css">
-		    div#silo_smugmug ul.mediaactions.dropbutton li { display: inline !important; float:left; width:9%; min-width: 5px; padding: 0 5% !important; }
-		    div#silo_smugmug ul.mediaactions.dropbutton li.first-child a { background: none !important; }
-		    div#silo_smugmug ul.mediaactions.dropbutton li.first-child:hover { -moz-border-radius-bottomleft: 3px !important;  -webkit-border-bottom-left-radius: 3px !important; -moz-border-radius-topright: 0px !important;  -webkit-border-top-right-radius: 0px !important; }
-		    div#silo_smugmug ul.mediaactions.dropbutton li.last-child { -moz-border-radius-bottomleft: 0px !important;  -webkit-border-bottom-left-radius: 0px !important; border-right: none; }
-		    div#silo_smugmug ul.mediaactions.dropbutton li.last-child:hover { -moz-border-radius-topright: 3px !important;  -webkit-border-top-right-radius: 3px !important; -moz-border-radius-bottomright: 3px !important;  -webkit-border-bottom-right-radius: 3px !important; padding-right: 6% !important; }
-		    span.hidden_img { background: transparent url('{$lockicon}') no-repeat 0 50%; width: 16px; height: 32px; float: left;}
-			div#silo_smugmug div.media_controls li.status {color: red; right: 10px; position: fixed; font-weight: bold; text-transform: uppercase; }
-		    </style>
 		    <script type="text/javascript">
-			    /* Get the silo id from the href of the link and add class to that siloid */
-			  /* We don't need this as of r3286, but keeping this here just in case someone comes along with an earlier rev */
-			var siloid = $("a:contains('SmugMug')").attr("href");
-			var silo = $(siloid).find('div.splitterinside');
-          if ($(silo).hasClass('silo_smugmug')) {
-              true;
-          } else {
-              $(silo).attr('id', 'silo_smugmug');
-          }
-			    $(siloid).addClass('smugmug');
+				/* Get the silo id from the href of the link and add class to that siloid
+				 * We don't need this as of r3286, but keeping this here just in case someone comes along with an earlier rev
+				 */
+				var siloid = $("a:contains('SmugMug')").attr("href");
+				var silo = $(siloid).find('div.splitterinside');
+				if ($(silo).hasClass('silo_smugmug')) {
+				  true;
+				} else {
+				  $(silo).attr('id', 'silo_smugmug');
+				}
+				$(siloid).addClass('smugmug');
 
 			    /* This is a bit of a fudge to over-write the dblclick functionality.
-			       We introduce our own dblclick which inserts the default image size as defined by the user.
-
-			       I use mouseover here because media.js, which sets the initial dblclick, is reloaded each time
-			       the user clicks on a "dir" entry, but this code isn't. */
+			     * We introduce our own dblclick which inserts the default image size as defined by the user.
+				 *
+			     * I use mouseover here because media.js, which sets the initial dblclick, is reloaded each time
+			     * the user clicks on a "dir" entry, but this code isn't.
+				 */
 			    $('.smugmug .mediaphotos').bind('mouseover', function() {
 					    $('.smugmug .media').unbind('dblclick');
 					    $('.smugmug .media').dblclick(function(){
@@ -260,6 +260,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					    });
 			    });
 
+				// We Only show 5 buttons as I doubt anyone will be inserting larger images into posts.
 			    habari.media.output.smugmug = {
 				    Ti: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.TinyURL, 'Ti');},
 				    Th: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.ThumbURL, 'Th');},
@@ -271,9 +272,22 @@ class SmugMugSilo extends Plugin implements MediaSilo
 				function insert_smugmug_photo(fileindex, fileobj, filesizeURL, size) {
 					ratio = fileobj.Width/fileobj.Height;
 
+					// Scale images correctly and set appropriate width and height values automatically
 					var dimensions = new Array();
+
+					if ( fileobj.SquareThumbs === true ) {
 						dimensions['Ti'] = new Array(100, 100);	// width, height
 						dimensions['Th'] = new Array(150, 150);
+					} else {
+						if ( ratio > 1) {
+							dimensions['Ti'] = new Array(100, Math.ceil(100/ratio));	// width, height
+							dimensions['Th'] = new Array(150, Math.ceil(150/ratio));
+						} else {
+							dimensions['Ti'] = new Array(Math.ceil(100*ratio), 100);
+							dimensions['Th'] = new Array(Math.ceil(150*ratio), 150);
+						}
+					}
+
 					if ( ratio > 1) {
 						dimensions['S'] = new Array(400, Math.ceil(400/ratio));
 						dimensions['M'] = new Array(600, Math.ceil(600/ratio));
@@ -289,7 +303,6 @@ class SmugMugSilo extends Plugin implements MediaSilo
 						dimensions['X2'] = new Array(Math.ceil(960*ratio), 960);
 						dimensions['X3'] = new Array(Math.ceil(1200*ratio), 1200);
 					}
-
 					dimensions['O'] = new Array(fileobj.Width, fileobj.Height);
 
 					if (dimensions[(size)] == undefined) {
@@ -308,20 +321,19 @@ class SmugMugSilo extends Plugin implements MediaSilo
 				    if (filesizeURL == "Default") {
 					    filesizeURL = "http://{$nickName}.smugmug.com/photos/"+fileobj.id+"_"+fileobj.Key+"-"+size+"."+fileobj.Format.toLowerCase();
 				    }
-
-								
+					
 
 SMUGMUG_ENTRY_CSS_1;
 switch ($user->info->smugmugsilo__link_to) {
 	case 'nothing':
 		echo "habari.editor.insertSelection('<img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" />');";
 	break;
-	case 'image':	// FIXME: Get this working with custom sizes
+	case 'image':	// TODO: Get this working with custom sizes
 		$linkTo = $sizeURL[$user->info->smugmugsilo__link_to_size];
-		echo "habari.editor.insertSelection('<a href=\"' + fileobj.{$linkTo} + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
+		echo "habari.editor.insertSelection('<a href=\"' + fileobj.{$linkTo} + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" \/><\/a>');";
 	break;
 	case 'smugmug':
-		echo "habari.editor.insertSelection('<a href=\"' + fileobj.AlbumURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
+		echo "habari.editor.insertSelection('<a href=\"' + fileobj.AlbumURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" \/><\/a>');";
 	break;
 	case 'smuggal': // TODO: Coming one day
 		$smuggalOpts = Options::get('smuggal__options');
@@ -337,10 +349,9 @@ echo <<< SMUGMUG_ENTRY_CSS_2
 			    habari.media.preview.smugmug = function(fileindex, fileobj) {
 				    out = '<div class="mediatitle" title="'+ fileobj.Caption +'">';
 				    if (fileobj.Hidden == 1) {
-					    out += '<span class="hidden_img"></span>';	/* This is a bit of a nasty fudge, but it gets the job done. */
+					    out += '<span class="hidden_img"><\/span>';	/* This is a bit of a nasty fudge, but it gets the job done. */
 				    }
-					// FIXME: Assumes thumbs are square
-				    out += '<a href="' + fileobj.AlbumURL + '" class="medialink" target="_blank" title="Go to gallery page on SmugMug">media</a>' + fileobj.TruncTitle + '</div><img src="' + fileobj.ThumbURL + '" height=\"100\" />';
+				    out += '<a href="' + fileobj.AlbumURL + '" class="medialink" target="_blank" title="Go to gallery page on SmugMug">media<\/a>' + fileobj.TruncTitle + '<\/div><img src="' + fileobj.ThumbURL + '" \/>';
 				    return out;
 			    }
 		    </script>
@@ -781,6 +792,7 @@ UPLOAD_FORM;
                   $props['Caption'] = MultiByte::convert_encoding( $props['FileName'] );
                 }
 				$props['NiceName'] = $galInfo['NiceName'];
+				$props['SquareThumbs'] = ( array_key_exists('SquareThumbs', $galInfo ) ) ? $galInfo['SquareThumbs'] : false;
                 unset( $props['FileName'] );
                 $results[] = new MediaAsset(
                         self::SILO_NAME . '/photos/' . $photo['id'],
