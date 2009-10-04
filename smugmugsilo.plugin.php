@@ -149,7 +149,6 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					echo "<p>"._t( 'Do you want to ' )."<b><a href=\"{$reauth_url}\">"._t( 're-authorize this plugin' )."</a></b>?<p></form>";
 					EventLog::log( _t( 'De-authorized' ) );
 				break;
-
 			    case _t( 'Configure' ) :
 					$user = User::identify();
 					$token = $user->info->smugmugsilo__token;
@@ -180,28 +179,18 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					$ui->append( 'select', 'link_to', 'user:smugmugsilo__link_to', _t( 'Link to:' ) );
 						$ui->link_to->options = $link_to_array;
 					$ui->append( 'select', 'link_to_size', 'user:smugmugsilo__link_to_size', _t( '"Link to" Size of Longest Edge (px):' ) );
+						// Temporarily remove the "Custom" Option as we don't use it yet
+						unset($imgSizes['Custom']);
 						$ui->link_to_size->options = $imgSizes;
 					if ($user->info->smugmugsilo__link_to != 'image') {
 						$ui->link_to_size->class = 'formcontrol hidden';
 					}
 					$ui->append( 'text', 'link_to_custom_size', 'user:smugmugsilo__link_to_custom_size', _t( 'Custom Size of Longest Edge (px):' ) );
-					if ( $ui->info->smugmugsilo__link_to_size != 'Custom' ) {
+					if ( $ui->smugmugsilo__link_to_size != 'Custom' ) {
 						$ui->link_to_custom_size->class = 'formcontrol hidden';
 					}
-					// If Thickbox enabled, give option of using it, and what img size to show:
-					// Commenting out as people may have their own installation of thickbox and not the plugin
-					/* if ( Plugins::is_loaded( 'Thickbox' ) ) { // Requires svn r2903 or later due to ticket #754
-					$ui->append( 'fieldset', 'tbfs', 'ThickBox' );
-					$ui->tbfs->append( 'checkbox', 'use_tb', 'user:smugmugsilo__use_thickbox', _t( 'Use Thickbox?' ) );
-					$ui->tbfs->append( 'select', 'tb_image_size', 'user:smugmugsilo__thickbox_img_size', _t( 'Image size to use for Thickbox (warning: large images are slow to load):' ) );
-					if ( $useTB == FALSE ) {
-					  $ui->tb_image_size->class = 'formcontrol hidden';
-					}
-					$ui->tbfs->tb_image_size->options = array( 'MediumURL' => 'Medium', 'LargeURL' => 'Large (if available)', 'XLargeURL' => 'XLarge (if available)', 'X2LargeURL' => 'X2Large (if available)', 'X3LargeURL' => 'X3Large (if available)', 'OriginalURL' => 'Original (if available)' );
-					} // End of if is_loaded()
-					*/
 					$ui->append( 'submit', 'submit', _t( 'Save Options' ) );
-					$ui->set_option( 'success_message', _t( 'Options successfully saved.' ) );
+					$ui->on_success( array( $this, 'save_config_msg' ) );
 					$ui->out();
 				break;
 		    }
@@ -221,20 +210,10 @@ class SmugMugSilo extends Plugin implements MediaSilo
      **/
     public function action_admin_footer( $theme ) {
 	    if( Controller::get_var( 'page' ) == 'publish' ) {
-
-
 			$user = User::identify();
 			$size = $user->info->smugmugsilo__image_size;
-			$sizeURL = array( 'Ti' => 'TinyURL', 'Th' => 'ThumbnailURL', 'S' => 'SmallURL', 'M' => 'MediumURL', 'L' => 'LargeURL', 'XL' => 'XLargeURL', 'X2' => 'X2LargeURL', 'X3' => 'X3LargeURL', 'Original' => 'OriginalURL', 'Custom' => 'Custom' );
+			$sizeURL = array( 'Ti' => 'TinyURL', 'Th' => 'ThumbnailURL', 'S' => 'SmallURL', 'M' => 'MediumURL', 'L' => 'LargeURL', 'XL' => 'XLargeURL', 'X2' => 'X2LargeURL', 'X3' => 'X3LargeURL', 'O' => 'OriginalURL', 'Custom' => 'Custom' );
 
-			$dimensions = array(
-				'Ti' => array(100, 100),	// width, height
-				'Th' => array(150, 150),
-				'S' => array(400, 300),
-				'M' => array(600, 450),
-				'L' => array(800, 600),
-				'XL' => array(1024, 768),
-			);
 		    if ( $size == "Custom" ) {
 				$customSize = $user->info->smugmugsilo__custom_size;
 			    $size = "{$customSize}x{$customSize}";
@@ -300,12 +279,18 @@ class SmugMugSilo extends Plugin implements MediaSilo
 						dimensions['M'] = new Array(600, Math.ceil(600/ratio));
 						dimensions['L'] = new Array(800, Math.ceil(800/ratio));
 						dimensions['XL'] = new Array(1024, Math.ceil(1024/ratio));
+						dimensions['X2'] = new Array(1280, Math.ceil(1280/ratio));
+						dimensions['X3'] = new Array(1600, Math.ceil(1600/ratio));
 					} else {
 						dimensions['S'] = new Array(Math.ceil(300*ratio), 300);
 						dimensions['M'] = new Array(Math.ceil(450*ratio), 450);
 						dimensions['L'] = new Array(Math.ceil(600*ratio), 600);
 						dimensions['XL'] = new Array(Math.ceil(768*ratio), 768);
+						dimensions['X2'] = new Array(Math.ceil(960*ratio), 960);
+						dimensions['X3'] = new Array(Math.ceil(1200*ratio), 1200);
 					}
+
+					dimensions['O'] = new Array(fileobj.Width, fileobj.Height);
 
 					if (dimensions[(size)] == undefined) {
 						split = size.split('x');
@@ -327,13 +312,13 @@ class SmugMugSilo extends Plugin implements MediaSilo
 								
 
 SMUGMUG_ENTRY_CSS_1;
-// FIXME: Need to dynamically set the image width and height. At the moment we assume square thumbs
 switch ($user->info->smugmugsilo__link_to) {
 	case 'nothing':
 		echo "habari.editor.insertSelection('<img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" />');";
 	break;
 	case 'image':	// FIXME: Get this working with custom sizes
-		echo "habari.editor.insertSelection('<a href=\"' + filesizeURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
+		$linkTo = $sizeURL[$user->info->smugmugsilo__link_to_size];
+		echo "habari.editor.insertSelection('<a href=\"' + fileobj.{$linkTo} + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
 	break;
 	case 'smugmug':
 		echo "habari.editor.insertSelection('<a href=\"' + fileobj.AlbumURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
@@ -344,12 +329,6 @@ switch ($user->info->smugmugsilo__link_to) {
 		echo "habari.editor.insertSelection('<a href=\"{$url_root}/' + fileobj.NiceName + '#' + fileobj.id + '_' + fileobj.Key + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
 	break;
 }
-/*
-if ( $useThickBox && Plugins::is_loaded( 'Thickbox' ) ) {
-    echo "habari.editor.insertSelection('<a class=\"thickbox\" href=\"' + fileobj.{$thickBoxSize} + '\" title=\"'+ fileobj.Caption + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" /></a>');";
-} else {
-    echo "habari.editor.insertSelection('<a href=\"' + fileobj.AlbumURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
-}*/
 
 echo <<< SMUGMUG_ENTRY_CSS_2
 
@@ -360,7 +339,8 @@ echo <<< SMUGMUG_ENTRY_CSS_2
 				    if (fileobj.Hidden == 1) {
 					    out += '<span class="hidden_img"></span>';	/* This is a bit of a nasty fudge, but it gets the job done. */
 				    }
-				    out += '<a href="' + fileobj.AlbumURL + '" class="medialink" target="_blank" title="Go to gallery page on SmugMug">media</a>' + fileobj.TruncTitle + '</div><img src="' + fileobj.ThumbURL + '" width=\"100\" height=\"100\" />';
+					// FIXME: Assumes thumbs are square
+				    out += '<a href="' + fileobj.AlbumURL + '" class="medialink" target="_blank" title="Go to gallery page on SmugMug">media</a>' + fileobj.TruncTitle + '</div><img src="' + fileobj.ThumbURL + '" height=\"100\" />';
 				    return out;
 			    }
 		    </script>
@@ -950,7 +930,7 @@ UPLOAD_FORM;
 	 * Simple function to call once to clear multiple cache locations
 	 *
 	 */
-	private function clearCaches() {
+	private function clearCaches( ) {
 		$this->phpSmugInit();
 		$this->smug->clearCache();
 		foreach ( Cache::get_group( 'smugmugsilo' ) as $name => $data ) {
