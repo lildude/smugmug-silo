@@ -35,7 +35,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
     const OAUTHSECRET = 'afc04b3e9650cd342fc91072d939405d';
     const CACHE_EXPIRY = 86400;	// seconds.  This is 24 hours.
     private $status;
-    private $version = '0.6r61';
+    private $version = '1.0';
 
     /**
      * The help message - it provides a larger explanation of what this plugin
@@ -45,7 +45,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
      */
     public function help()
     {
-            return _t('Provides a silo to access your SmugMug photos making it easy to include images into posts and pages and also upload images directly to SmugMug.');
+		return _t('Provides a silo to access your SmugMug photos making it easy to include images into posts and pages and also upload images directly to SmugMug.');
     }
 
     /**
@@ -75,24 +75,23 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					    $deauth_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'De-Authorize' ) ) . '#plugin_options';
 					    echo '<p>'._t( 'You have already successfully authorized Habari to access your SmugMug account' ).'.</p>';
 					    echo '<p>'._t( 'Do you want to ' )."<a href=\"{$deauth_url}\">"._t( 'revoke authorization' ).'</a>?</p>';
-				    } else {
-					    try {
-                  if ($this->smug->mode == 'read-only') {
-                        echo '<form><p>'._t('SmugMug is currently in read-only mode, so authorization is not possible. Please try again later.').'</p></form>';
-                  } else {
-                    $reqToken = $this->smug->auth_getRequestToken();
-                    $_SESSION['SmugGalReqToken'] = serialize( $reqToken );
-                    $confirm_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'confirm' ) ) . '#plugin_options';
-                      echo '<form><table style="border-spacing: 5px; width: 100%;"><tr><td>'._t( 'To use this plugin, you must authorize Habari to have access to your SmugMug account' ).".</td>";
-                    echo "<td><button id='auth' style='margin-left:10px;' onclick=\"window.open('{$this->smug->authorize( "Access=Full", "Permissions=Modify" )}', '_blank').focus();return false;\">"._t( 'Authorize' )."</button></td></tr>";
-                    echo '<tr><td>'._t( 'When you have completed the authorization on SmugMug, return here and confirm that the authorization was successful.' )."</td>";
-                    echo "<td><button disabled='true' id='conf' style='margin-left:10px;' onclick=\"location.href='{$confirm_url}'; return false;\">"._t( 'Confirm' )."</button></td></tr>";
-                    echo '</table></form>';
-                  }
-						  }
+				    }
+					else {
+						try {
+							if ($this->smug->mode == 'read-only') {
+								echo '<form><p>'._t('SmugMug is currently in read-only mode, so authorization is not possible. Please try again later.').'</p></form>';
+							} else {
+								$reqToken = $this->smug->auth_getRequestToken();
+								$_SESSION['SmugGalReqToken'] = serialize( $reqToken );
+								$confirm_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'confirm' ) ) . '#plugin_options';
+								echo '<form><table style="border-spacing: 5px; width: 100%;"><tr><td>'._t( 'To use this plugin, you must authorize Habari to have access to your SmugMug account' ).".</td>";
+								echo "<td><button id='auth' style='margin-left:10px;' onclick=\"window.open('{$this->smug->authorize( "Access=Full", "Permissions=Modify" )}', '_blank').focus();return false;\">"._t( 'Authorize' )."</button></td></tr>";
+								echo '<tr><td>'._t( 'When you have completed the authorization on SmugMug, return here and confirm that the authorization was successful.' )."</td>";
+								echo "<td><button disabled='true' id='conf' style='margin-left:10px;' onclick=\"location.href='{$confirm_url}'; return false;\">"._t( 'Confirm' )."</button></td></tr>";
+								echo '</table></form>';
+							}
+						}
 						catch ( Exception $e ) {
-							//Session::error( $e->getMessage(), 'SmugMug API' );
-							//EventLog::log( $e->getMessage() );
 							if ( $e->getCode() == 64 ) {
 								$msg = 'Unable to communicate with SmugMug. Maybe it\'s down';
 							} else {
@@ -108,7 +107,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					    $auth_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Authorize' ) ) . '#plugin_options';
 					    echo '<form><p>'._t( 'Either you have already authorized Habari to access your SmugMug account, or you have not yet done so.  Please' ).'<strong><a href="' . $auth_url . '">'._t( 'try again' ).'</a></strong>.</p></form>';
 				    }
-            else {
+					else {
 					    $reqToken = unserialize( $_SESSION['SmugGalReqToken'] );
 					    $this->smug->setToken( "id={$reqToken['id']}", "Secret={$reqToken['Secret']}" );
 					    $token = $this->smug->auth_getAccessToken();
