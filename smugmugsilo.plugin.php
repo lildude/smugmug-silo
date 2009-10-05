@@ -633,225 +633,231 @@ UPLOAD_FORM;
     */
     public function silo_dir($path)
     {
-      $token = User::identify()->info->smugmugsilo__token;
-      $user  = User::identify()->info->smugmugsilo__nickName;
-      $this->smug->setToken( "id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}" );
-      $img_extras = 'FileName,Hidden,Caption,Format,Album,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,Width,Height'; // Grab only the options we need to keep the response small
-      $results = array();
-      $section = strtok( $path, '/' );
+		$token = User::identify()->info->smugmugsilo__token;
+		$user  = User::identify()->info->smugmugsilo__nickName;
+		$this->smug->setToken( "id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}" );
+		$img_extras = 'FileName,Hidden,Caption,Format,Album,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,Width,Height'; // Grab only the options we need to keep the response small
+		$results = array();
+		$section = strtok( $path, '/' );
 
-      switch( $section ) {
-        case 'recentPhotos':
-        $cache_name = ( array( 'smugmugsilo', "recentphotos".$user ) );
-        if ( Cache::has( $cache_name ) ) {
-          $results = Cache::get( $cache_name );
-        }
-        else {
-          $photos = self::getFeed( 10 );
-          $i = 0; $ids = array();
-          foreach( $photos->entry as $photo ) {
-            $attribs = $photo->link->attributes();
-            $ids[$i] = (string) $attribs->href;
-            $i++;
-          }
-          foreach( $ids as $photoURL ) {
-            $idKey = explode( '#', $photoURL );
-            list( $id, $key ) = explode( '_', $idKey[1] );
-            $info = $this->smug->images_getInfo( "ImageID={$id}",
-                               "ImageKey={$key}",
-                               "Extras={$img_extras}" );
-            $this->status = $this->smug->mode;
-            $props = array( 'TruncTitle' => '&nbsp;', 'FileName' => '&nbsp;', 'Hidden' => 0 );
-            // TODO: Need to determine if square thumbs are in use here and replace NULL below
-            foreach( $info as $name => $value ) {
-              if ($name == 'Caption') {
-                if ($value != '') {
-                  $props['Caption'] = MultiByte::convert_encoding( strip_tags( $value ) );
-                  $props['TruncTitle'] = self::setTitle( $props, $props['Caption'], NULL );
-                } else {
-                  $props['TruncTitle'] = self::setTitle( $props, $props['FileName'], NULL );
-                  $props['Caption'] = MultiByte::convert_encoding( $props['FileName'] );
-                }
-              } else if ($name == 'Album') {
-                $props['AlbumURL'] = $value['URL'];
-              } else {
-                $props[$name] = (string) $value;
-              }
-			  // Grab the NiceName for the Album - this is a bit intensive as we need to perform this call for each img
-			  // TODO
+		switch( $section ) {
+			case 'recentPhotos':
+				$cache_name = ( array( 'smugmugsilo', "recentphotos".$user ) );
+				if ( Cache::has( $cache_name ) ) {
+					$results = Cache::get( $cache_name );
+				}
+				else {
+					$photos = self::getFeed( 10 );
+					$i = 0; $ids = array();
+					foreach( $photos->entry as $photo ) {
+						$attribs = $photo->link->attributes();
+						$ids[$i] = (string) $attribs->href;
+						$i++;
+					}
+					foreach( $ids as $photoURL ) {
+						$idKey = explode( '#', $photoURL );
+						list( $id, $key ) = explode( '_', $idKey[1] );
+						$info = $this->smug->images_getInfo( "ImageID={$id}",
+															 "ImageKey={$key}",
+															 "Extras={$img_extras}" );
+						$this->status = $this->smug->mode;
+						$props = array( 'TruncTitle' => '&nbsp;', 'FileName' => '&nbsp;', 'Hidden' => 0 );
+						// TODO: Need to determine if square thumbs are in use here and replace NULL below
+						foreach( $info as $name => $value ) {
+							if ($name == 'Caption') {
+								if ($value != '') {
+									$props['Caption'] = MultiByte::convert_encoding( strip_tags( $value ) );
+									$props['TruncTitle'] = self::setTitle( $props, $props['Caption'], NULL );
+								}
+								else {
+									$props['TruncTitle'] = self::setTitle( $props, $props['FileName'], NULL );
+									$props['Caption'] = MultiByte::convert_encoding( $props['FileName'] );
+								}
+							}
+							else if ($name == 'Album') {
+								$props['AlbumURL'] = $value['URL'];
+							}
+							else {
+								$props[$name] = (string) $value;
+							}
 
-              unset( $props['FileName'] );
-              $props['filetype'] = 'smugmug';
-              $results[] = new MediaAsset(
-                      self::SILO_NAME . '/recentPhotos/' . $id,
-                      false,
-                      $props
-                      );
-            }
-          }
-          Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
-        }
+							unset( $props['FileName'] );
+							$props['filetype'] = 'smugmug';
+							$results[] = new MediaAsset(
+												self::SILO_NAME . '/recentPhotos/' . $id,
+												false,
+												$props
+												);
+						}
+					}
+					Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
+				}
+			break;
 
-        break;
-        case 'recentGalleries':
-          $selected_gallery = strtok( '/' );
-          $galmeta = explode( '_', $selected_gallery );
-          if ( $selected_gallery ) {
-            $cache_name = ( array( 'smugmugsilo', $selected_gallery.$user ) );
-            if ( Cache::has( $cache_name ) ) {
-              $results = Cache::get( $cache_name );
-            }
-            else {
-              $props = array( 'TruncTitle' => '&nbsp;', 'FileName' => '', 'Hidden' => 0 );
-              // TODO: Need to determine if square thumbs are in use here and replace NULL below
-			  // TODO: Switch to NiceName URL structure
-              $photos = $this->smug->images_get( "AlbumID={$galmeta[0]}",
-                                 "AlbumKey={$galmeta[1]}",
-                                 "Extras={$img_extras}" );
-              $this->status = $this->smug->mode;
-             foreach( $photos['Images'] as $photo ) {
-                foreach( $photo as $name => $value ) {
-                  $props[$name] = (string) $value;
-                  $props['filetype'] = 'smugmug';
-                  $props['AlbumURL'] = 'http://'.$user.'.smugmug.com/gallery/'.$galmeta[0].'_'.$galmeta[1].'#'.$photo['id'].'_'.$photo['Key'];
-                }
-                if ($props['Caption'] != '') {
-                  $props['Caption'] = MultiByte::convert_encoding( strip_tags( $props['Caption'] ) );
-                  $props['TruncTitle'] = self::setTitle( $props, $props['Caption'], $squareThumbs );
-                } else {
-                  $props['TruncTitle'] = self::setTitle( $props, $props['FileName'], $squareThumbs );
-                  $props['Caption'] = MultiByte::convert_encoding( $props['FileName'] );
-                }
-                unset( $props['FileName'] );
-                $results[] = new MediaAsset(
-                        self::SILO_NAME . '/photos/' . $photo['id'],
-                        false,
-                        $props
-                        );
-                        Utils::firedebug($props);
-              }
-              Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
-            }
-          } else {
-            $cache_name = ( array( 'smugmugsilo', "recentgalleries".$user ) );
-            if ( Cache::has( $cache_name ) ) {
-              $results = Cache::get( $cache_name );
-            }
-            else {
-              $photos = self::getFeed( 10, 'Galleries' );
-              $i = 0; $ids = array();
-              foreach( $photos->entry as $photo ) {
-                $attribs = $photo->link->attributes();
-                $ids[$i] = (string) $attribs->href;
-                $i++;
-              }
-              $j = 0;
-              $galleries = array();
-              foreach( $ids as $galURL ) {
-                $idKey = explode( '/', $galURL );
-                list( $id, $key ) = explode( '_', end($idKey ) );
-                $galleries[$j] = $this->smug->albums_getInfo( "AlbumID={$id}",
-                                        "AlbumKey={$key}" );
-                $this->status = $this->smug->mode;
-                $j++;
-              }
-              foreach( $galleries as $gallery ) {
-                $results[] = new MediaAsset(
-                        self::SILO_NAME . '/recentGalleries/' . (string) $gallery['id'].'_'.$gallery['Key'],
-                        true,
-                        array('title' => (string) $gallery['Title'])
-                        );
-              }
-            }
-            Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
-          }
-        break;
-        case 'galleries':
-          $selected_gallery = strtok( '/' );
-          $galmeta = explode( '_', $selected_gallery );
-          if ( $selected_gallery ) {
-            $cache_name = ( array( 'smugmugsilo', $selected_gallery ) );
-            if ( Cache::has( $cache_name ) ) {
-              $results = Cache::get( $cache_name );
-            }
-            else {
-              $props = array( 'TruncTitle' => '&nbsp;', 'FileName' => '', 'Hidden' => 0 );
-              $galInfo = $this->smug->albums_getInfo( "AlbumID={$galmeta[0]}",
-                                                      "AlbumKey={$galmeta[1]}" );
-              $squareThumbs = ( array_key_exists('SquareThumbs', $galInfo ) ) ? $galInfo['SquareThumbs'] : FALSE;
-              $photos = $this->smug->images_get( "AlbumID={$galmeta[0]}",
-                                 "AlbumKey={$galmeta[1]}",
-                                 "Extras={$img_extras}" );
-             $this->status = $this->smug->mode;
-              foreach( $photos['Images'] as $photo ) {
-                foreach( $photo as $name => $value ) {
-                  $props[$name] = (string) $value;
-                  $props['filetype'] = 'smugmug';
-                  $props['AlbumURL'] = 'http://'.$user.'.smugmug.com/gallery/'.$galmeta[0].'_'.$galmeta[1].'#'.$photo['id'].'_'.$photo['Key'];
-                }
-                if ($props['Caption'] != '') {
-                  $props['Caption'] = MultiByte::convert_encoding( strip_tags( $props['Caption'] ) );
-                  $props['TruncTitle'] = self::setTitle( $props, $props['Caption'], $squareThumbs );
-                } else {
-                  $props['TruncTitle'] = self::setTitle( $props, $props['FileName'], $squareThumbs );
-                  $props['Caption'] = MultiByte::convert_encoding( $props['FileName'] );
-                }
-				$props['NiceName'] = $galInfo['NiceName'];
-				$props['SquareThumbs'] = ( array_key_exists('SquareThumbs', $galInfo ) ) ? $galInfo['SquareThumbs'] : false;
-                unset( $props['FileName'] );
-                $results[] = new MediaAsset(
-                        self::SILO_NAME . '/photos/' . $photo['id'],
-                        false,
-                        $props
-                        );
-              }
-              Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
-            }
-          } else {
-            // Don't need to cache this as it's quick anyway.
-            // Set NickName as it ensure we still work in read-only mode.
-            try {
-              $galleries = $this->smug->albums_get( "NickName=".User::identify()->info->smugmugsilo__nickName, "Extras=Public" );
-              $this->status = $this->smug->mode;
-            }
-            catch (Exception $e) {
-                $this->status = 'ERROR: '.$e->getMessage();
-                Session::error($e->getMessage());
-                return false;
-            }
+			case 'recentGalleries':
+				$selected_gallery = strtok( '/' );
+				$galmeta = explode( '_', $selected_gallery );
+				if ( $selected_gallery ) {
+					$cache_name = ( array( 'smugmugsilo', $selected_gallery.$user ) );
+					if ( Cache::has( $cache_name ) ) {
+					$results = Cache::get( $cache_name );
+					}
+					else {
+						$props = array( 'TruncTitle' => '&nbsp;', 'FileName' => '', 'Hidden' => 0 );
+						// TODO: Need to determine if square thumbs are in use here and replace NULL below
+						// TODO: Switch to NiceName URL structure
+						$photos = $this->smug->images_get( "AlbumID={$galmeta[0]}",
+														   "AlbumKey={$galmeta[1]}",
+														   "Extras={$img_extras}" );
+						$this->status = $this->smug->mode;
+						foreach( $photos['Images'] as $photo ) {
+							foreach( $photo as $name => $value ) {
+								$props[$name] = (string) $value;
+								$props['filetype'] = 'smugmug';
+								$props['AlbumURL'] = 'http://'.$user.'.smugmug.com/gallery/'.$galmeta[0].'_'.$galmeta[1].'#'.$photo['id'].'_'.$photo['Key'];
+							}
+							if ($props['Caption'] != '') {
+								$props['Caption'] = MultiByte::convert_encoding( strip_tags( $props['Caption'] ) );
+								$props['TruncTitle'] = self::setTitle( $props, $props['Caption'], $squareThumbs );
+							}
+							else {
+								$props['TruncTitle'] = self::setTitle( $props, $props['FileName'], $squareThumbs );
+								$props['Caption'] = MultiByte::convert_encoding( $props['FileName'] );
+							}
+							unset( $props['FileName'] );
+							$results[] = new MediaAsset(
+												self::SILO_NAME . '/photos/' . $photo['id'],
+												false,
+												$props
+												);
+							Utils::firedebug($props);
+						}
+						Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
+					}
+				}
+				else {
+					$cache_name = ( array( 'smugmugsilo', "recentgalleries".$user ) );
+					if ( Cache::has( $cache_name ) ) {
+						$results = Cache::get( $cache_name );
+					}
+					else {
+						$photos = self::getFeed( 10, 'Galleries' );
+						$i = 0; $ids = array();
+						foreach( $photos->entry as $photo ) {
+							$attribs = $photo->link->attributes();
+							$ids[$i] = (string) $attribs->href;
+							$i++;
+						}
+						$j = 0;
+						$galleries = array();
+						foreach( $ids as $galURL ) {
+							$idKey = explode( '/', $galURL );
+							list( $id, $key ) = explode( '_', end($idKey ) );
+							$galleries[$j] = $this->smug->albums_getInfo( "AlbumID={$id}",
+																		  "AlbumKey={$key}" );
+							$this->status = $this->smug->mode;
+							$j++;
+						}
+						foreach( $galleries as $gallery ) {
+							$results[] = new MediaAsset(
+												self::SILO_NAME . '/recentGalleries/' . (string) $gallery['id'].'_'.$gallery['Key'],
+												true,
+												array( 'title' => (string) $gallery['Title'] )
+												);
+						}
+					}
+					Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
+				}
+			break;
 
-            foreach( $galleries as $gallery ) {
-              $results[] = new MediaAsset(
-                      self::SILO_NAME . '/galleries/' . (string) $gallery['id'].'_'.$gallery['Key'],
-                      true,
-                      // If the gallery is NOT public, mark it by preceding with a lock icon
-                      // This is a bit of the fudge as the MediaAsset takes an icon argument, but doesn't actually do anything with it.  This would be a great place for it to use it in this case. It would be great if it did.
-                      array( 'title' => ( ( $gallery['Public'] == TRUE ) ? '' : '<img src="'.URL::get_from_filesystem( __FILE__ ) . '/lib/imgs/lock.png" style="vertical-align: middle; height:12px; width:12px" title="Private Gallery" /> ' ). $gallery['Title'] )
-                      );
-            }
+			case 'galleries':
+				$selected_gallery = strtok( '/' );
+				$galmeta = explode( '_', $selected_gallery );
+				if ( $selected_gallery ) {
+					$cache_name = ( array( 'smugmugsilo', $selected_gallery ) );
+					if ( Cache::has( $cache_name ) ) {
+						$results = Cache::get( $cache_name );
+					}
+					else {
+						$props = array( 'TruncTitle' => '&nbsp;', 'FileName' => '', 'Hidden' => 0 );
+						$galInfo = $this->smug->albums_getInfo( "AlbumID={$galmeta[0]}",
+																"AlbumKey={$galmeta[1]}" );
+						$squareThumbs = ( array_key_exists('SquareThumbs', $galInfo ) ) ? $galInfo['SquareThumbs'] : FALSE;
+						$photos = $this->smug->images_get( "AlbumID={$galmeta[0]}",
+														   "AlbumKey={$galmeta[1]}",
+														   "Extras={$img_extras}" );
+						$this->status = $this->smug->mode;
+						foreach( $photos['Images'] as $photo ) {
+							foreach( $photo as $name => $value ) {
+								$props[$name] = (string) $value;
+								$props['filetype'] = 'smugmug';
+								$props['AlbumURL'] = 'http://'.$user.'.smugmug.com/gallery/'.$galmeta[0].'_'.$galmeta[1].'#'.$photo['id'].'_'.$photo['Key'];
+							}
+							if ($props['Caption'] != '') {
+								$props['Caption'] = MultiByte::convert_encoding( strip_tags( $props['Caption'] ) );
+								$props['TruncTitle'] = self::setTitle( $props, $props['Caption'], $squareThumbs );
+							}
+							else {
+								$props['TruncTitle'] = self::setTitle( $props, $props['FileName'], $squareThumbs );
+								$props['Caption'] = MultiByte::convert_encoding( $props['FileName'] );
+							}
+							$props['NiceName'] = $galInfo['NiceName'];
+							$props['SquareThumbs'] = ( array_key_exists('SquareThumbs', $galInfo ) ) ? $galInfo['SquareThumbs'] : false;
+							unset( $props['FileName'] );
+							$results[] = new MediaAsset(
+												self::SILO_NAME . '/photos/' . $photo['id'],
+												false,
+												$props
+												);
+						}
+						Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
+					}
+				}
+				else {
+					// Don't need to cache this as it's quick anyway.
+					// Set NickName as it ensure we still work in read-only mode.
+					try {
+						$galleries = $this->smug->albums_get( "NickName=".User::identify()->info->smugmugsilo__nickName, "Extras=Public" );
+						$this->status = $this->smug->mode;
+					}
+					catch (Exception $e) {
+						$this->status = 'ERROR: '.$e->getMessage();
+						Session::error($e->getMessage());
+						return false;
+					}
 
-          }
-        break;
-        case '':
-          $results[] = new MediaAsset(
-                  self::SILO_NAME . '/galleries',
-                  true,
-                  array( 'title' => 'All Galleries' )
-                  );
-          $results[] = new MediaAsset(
-                  self::SILO_NAME . '/recentGalleries',
-                  true,
-                  array( 'title' => 'Recent Galleries' )
-                  );
-          $results[] = new MediaAsset(
-                  self::SILO_NAME . '/recentPhotos',
-                  true,
-                  array( 'title' => 'Recent Photos' )
-                  );
-        break;
-      }
-      return $results;
-    }
+					foreach( $galleries as $gallery ) {
+						$results[] = new MediaAsset(
+											self::SILO_NAME . '/galleries/' . (string) $gallery['id'].'_'.$gallery['Key'],
+											true,
+											// If the gallery is NOT public, mark it by preceding with a lock icon
+											// This is a bit of the fudge as the MediaAsset takes an icon argument, but doesn't actually do anything with it.  This would be a great place for it to use it in this case. It would be great if it did.
+											array( 'title' => ( ( $gallery['Public'] == TRUE ) ? '' : '<img src="'.URL::get_from_filesystem( __FILE__ ) . '/lib/imgs/lock.png" style="vertical-align: middle; height:12px; width:12px" title="Private Gallery" /> ' ). $gallery['Title'] )
+											);
+					}
+				}
+			break;
+
+			case '':
+			  $results[] = new MediaAsset(
+					  self::SILO_NAME . '/galleries',
+					  true,
+					  array( 'title' => 'All Galleries' )
+					  );
+			  $results[] = new MediaAsset(
+					  self::SILO_NAME . '/recentGalleries',
+					  true,
+					  array( 'title' => 'Recent Galleries' )
+					  );
+			  $results[] = new MediaAsset(
+					  self::SILO_NAME . '/recentPhotos',
+					  true,
+					  array( 'title' => 'Recent Photos' )
+					  );
+			break;
+		}
+		return $results;
+	}
 
    /**
    * Get the file from the specified path
@@ -947,7 +953,8 @@ UPLOAD_FORM;
 	 * Simple function to call once to clear multiple cache locations
 	 *
 	 */
-	private function clearCaches( ) {
+	private function clearCaches( )
+	{
 		$this->phpSmugInit();
 		$this->smug->clearCache();
 		foreach ( Cache::get_group( 'smugmugsilo' ) as $name => $data ) {
@@ -1036,7 +1043,8 @@ UPLOAD_FORM;
 	    $this->cache_name = array ('smugmugsilo', "{$urlEnd}".$nickName );
 	    if ( Cache::has( $this->cache_name ) ) {
 		    $response = Cache::get( $this->cache_name );
-	    } else {
+	    }
+		else {
 		    $call = new RemoteRequest( $url );
 		    $call->set_timeout( 5 );
 		    $result = $call->execute();
@@ -1057,23 +1065,22 @@ UPLOAD_FORM;
 	    }
     }
 
-	// TODO: Seeing where we really need this functionality.
-	function phpSmugInit() {
+	public function phpSmugInit() {
 		if ( !class_exists( 'phpSmug' ) ) {
 			require_once( dirname( __FILE__ ).'/lib/phpSmug/phpSmug.php' );
 		}
 
 		$this->smug = new phpSmug( "APIKey=".self::APIKEY,
-					 "AppName={$this->info->name}/{$this->info->version}",
-					 "OAuthSecret=".self::OAUTHSECRET );
+								   "AppName={$this->info->name}/{$this->info->version}",
+								   "OAuthSecret=".self::OAUTHSECRET );
 
 		// Enable caching.  This will be for 24 hours, but will be cleared whenever
 		// a file is uploaded via this plugin or manually via the silo.
 		$this->smug->enableCache( "type=fs",
-					"cache_dir=". HABARI_PATH . '/user/cache/',
-					"cache_expire=".self::CACHE_EXPIRY );
-    // Call a method we know will succeed, so we can get the mode set
-    $this->smug->reflection_getMethods();
+								  "cache_dir=". HABARI_PATH . '/user/cache/',
+								  "cache_expire=".self::CACHE_EXPIRY );
+		// Call a method we know will succeed, so we can get the mode set
+		$this->smug->reflection_getMethods();
 	}
 }
 
