@@ -45,7 +45,9 @@ class SmugMugSilo extends Plugin implements MediaSilo
      */
     public function help()
     {
-		return _t('Provides a silo to access your SmugMug photos making it easy to include images into posts and pages and also upload images directly to SmugMug.');
+		return	_t( 'The ' ) . '<a href="http://www.lildude.co.uk/projects/smugmug-media-silo-plugin/">' . _t( 'SmugMug Media Silo plugin' ) . '</a> '  .
+				_t( 'implements a Habari silo to access your SmugMug photos making it easy to include images into posts and pages and also upload images 
+					 directly to SmugMug.' );
     }
 
     /**
