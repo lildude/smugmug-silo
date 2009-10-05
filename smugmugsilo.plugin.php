@@ -150,6 +150,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					echo "<p>"._t( 'Do you want to ' )."<b><a href=\"{$reauth_url}\">"._t( 're-authorize this plugin' )."</a></b>?<p></form>";
 					EventLog::log( _t( 'De-authorized' ) );
 				break;
+
 			    case _t( 'Configure' ) :
 					$user = User::identify();
 					$token = $user->info->smugmugsilo__token;
@@ -165,7 +166,6 @@ class SmugMugSilo extends Plugin implements MediaSilo
 						$ui->custom_size->class = 'formcontrol hidden';
 					}
 					$ui->image_size->options = $imgSizes;
-
 
 					$link_to_array = array (
 											'nothing' => _t( 'Nothing'),
@@ -255,9 +255,9 @@ class SmugMugSilo extends Plugin implements MediaSilo
 			    $('.smugmug .mediaphotos').bind('mouseover', function() {
 					    $('.smugmug .media').unbind('dblclick');
 					    $('.smugmug .media').dblclick(function(){
-							    var id = $('.foroutput', this).html();
-							    insert_smugmug_photo(id, habari.media.assets[id], "Default", "{$size}");
-							    return false;
+							var id = $('.foroutput', this).html();
+							insert_smugmug_photo(id, habari.media.assets[id], "Default", "{$size}");
+							return false;
 					    });
 			    });
 
@@ -453,6 +453,8 @@ SMUGMUG_CONFIG_JS;
         unset( $user->info->smugmugsilo__image_size );
         unset( $user->info->smugmugsilo__use_thickbox );
         unset( $user->info->smugmugsilo__nickName );
+		unset( $user->info->smugmugsilo__link_to_size );
+		unset( $user->info->smugmugsilo__link_to );
         $user->info->commit();
         */
         $this->clearCaches();
@@ -479,7 +481,7 @@ SMUGMUG_CONFIG_JS;
 				    $controls[] = $this->link_panel( self::SILO_NAME . '/' . $path, 'upload', _t( 'Upload' ) );
 			    }
 		    }
-        $controls['status'] = $this->status;
+			$controls['status'] = $this->status;
 	    }
 	    return $controls;
     }
@@ -503,6 +505,7 @@ SMUGMUG_CONFIG_JS;
 					$panel .= "<div style='width: 200px; margin:10px auto; text-align:center;'><p>Cache Cleared</p>";
 					$panel .= '<p><br/><strong><a href="#" onclick="habari.media.forceReload();habari.media.clickdir(\''. self::SILO_NAME . '/'. $path . '\');habari.media.showdir(\''. self::SILO_NAME . '/'. $path . '\');">'._t('Return to current silo path.').'</a></strong></p></div>';
 				break;
+
 			    case 'upload':
 				    if( isset( $_FILES['file'] ) ) {
 					    try {
@@ -586,7 +589,8 @@ UPLOAD_FORM;
 		    if( $phpSmug_ok ){
 			    $actions[] = _t( 'Configure' );
 			    $actions[] = _t( 'De-Authorize' );
-		    } else {
+		    }
+			else {
 			    $actions[] = _t( 'Authorize' );
 		    }
 	    }
@@ -612,13 +616,13 @@ UPLOAD_FORM;
     */
     public function silo_info()
     {
-      if( $this->is_auth() ) {
-        return array( 'name' => self::SILO_NAME,
-                'icon' => URL::get_from_filesystem(__FILE__) . '/lib/imgs/icon.png' );
-      }
-      else {
-        return array();
-      }
+		if( $this->is_auth() ) {
+			return array( 'name' => self::SILO_NAME,
+						  'icon' => URL::get_from_filesystem(__FILE__) . '/lib/imgs/icon.png' );
+		}
+		else {
+			return array();
+		}
     }
 
     /**
