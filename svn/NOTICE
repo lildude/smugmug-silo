@@ -1,5 +1,38 @@
 = COPYRIGHT NOTICES =
-[Update this to reflect any copyright related noticed ]
+This product includes code and libraries developed by third parties, which are
+governed by different licenses.  These components, and their licenses, are listed
+below.
+
+= phpSmug - http://phpsmug.com/ =
+Copyright (c) 2009 Colin Seymour and is released under v3.0 of the GNU Lesser Public License:
+http://www.gnu.org/licenses/lgpl.html
+
+The following are included, but may not necessarily be used:
+
+= PEAR DB - http://pear.php.net/package/DB =
+Copyright (c) 1997-2007 The PHP Group and is released under v3.0 of the PHP License:
+http://www.php.net/license/3_0.txt
+
+= PEAR HTTP::Request - http://pear.php.net/package/http_request =
+Copyright (c) 2002-2007 Richard Heyes and is released under the BSD License:
+http://opensource.org/licenses/bsd-license.php
+
+= PEAR Net::Socket - http://pear.php.net/package/Net_Socket =
+Copyright (c) 1997-2003 The PHP Group and is released under v2.0 of the PHP License:
+http://www.php.net/license/2_02
+
+= PEAR Net::Url - http://pear.php.net/package/net_url =
+Copyright (c) 2002-2004 Richard Heyes and is released under the BSD License:
+http://opensource.org/licenses/bsd-license.php
 
 
-This software is provided by the copyright holders and contributors “as is” and any express or implied warranties, including, but not limited to, the implied warranties of merchantability and fitness for a particular purpose are disclaimed. In no event shall the copyright owner or contributors be liable for any direct, indirect, incidental, special, exemplary, or consequential damages (including, but not limited to, procurement of substitute goods or services; loss of use, data, or profits; or business interruption) however caused and on any theory of liability, whether in contract, strict liability, or tort (including negligence or otherwise) arising in any way out of the use of this software, even if advised of the possibility of such damage.
+This software is provided by the copyright holders and contributors "as is" and
+any express or implied warranties, including, but not limited to, the implied
+warranties of merchantability and fitness for a particular purpose are disclaimed.
+In no event shall the copyright owner or contributors be liable for any direct,
+indirect, incidental, special, exemplary, or consequential damages (including,
+but not limited to, procurement of substitute goods or services; loss of use,
+data, or profits; or business interruption) however caused and on any theory of
+liability, whether in contract, strict liability, or tort (including negligence
+or otherwise) arising in any way out of the use of this software, even if advised
+of the possibility of such damage.
