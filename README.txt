@@ -34,8 +34,8 @@ SmugMug Media Silo is NOT compatible with Habari 0.5.2 and earlier. This is beca
 several bugs were found in the development of the plugin that have only been resolved
 in 0.6 and later.
 
-One word of warning: I’ve not tested SmugMug’s video functionality, so I don’t know
-if this works.
+SmugMug's video functionality has not been tested nor implemented yet, but it will be
+coming in a future release.
 
 
 INSTALLATION
