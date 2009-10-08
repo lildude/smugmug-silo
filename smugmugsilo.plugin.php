@@ -15,12 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * @todo Implement NiceName URLs for links
- * @todo Add image dimensions when adding imgs/links
- * @todo Cater for Captionless images in silo bar
- * @todo Get dimensions correct on inserted code
- * @todo Add option to link to SmugMug Gallery, Larger image or SmugGal gallery page
- *
  */
 
 /**
@@ -94,12 +88,12 @@ class SmugMugSilo extends Plugin implements MediaSilo
 							}
 						}
 						catch ( Exception $e ) {
-							if ( $e->getCode() == 64 ) {
+							if ( $e->getCode() == 64 || $e->getCode() == 500 ) {
 								$msg = 'Unable to communicate with SmugMug. Maybe it\'s down';
 							} else {
 								$msg = $e->getMessage();
 							}
-							echo "<br /><p>Ooops. There was a problem: <strong>{$msg}</strong></p>";
+							echo "<br /><p>Ooops. There was a problem: <strong>{$msg}</strong>. <a href='http://smugmug.wordpress.com/'>Check SmugMug notices</a>.</p>";
 						}
 				    }
 				break;
@@ -152,6 +146,9 @@ class SmugMugSilo extends Plugin implements MediaSilo
 				break;
 
 			    case _t( 'Configure' ) :
+					$this->add_template( 'smugmugsilo_text', dirname( $this->get_file() ) . '/lib/formcontrols/smugmugsilo_text.php' );
+					$this->add_template( 'smugmugsilo_select', dirname( $this->get_file() ) . '/lib/formcontrols/smugmugsilo_select.php' );
+					
 					$user = User::identify();
 					$token = $user->info->smugmugsilo__token;
 					$customSize = $user->info->smugmugsilo__custom_size;
@@ -161,7 +158,8 @@ class SmugMugSilo extends Plugin implements MediaSilo
 
 					$ui = new FormUI( strtolower( get_class( $this ) ) );
 					$ui->append( 'select', 'image_size','user:smugmugsilo__image_size', _t( 'Default size for images in Posts:' ) );
-					$ui->append( 'text', 'custom_size', 'user:smugmugsilo__custom_size', _t( 'Custom Size of Longest Edge (px):' ) );
+						$ui->image_size->template = 'smugmugsilo_select';
+					$ui->append( 'text', 'custom_size', 'user:smugmugsilo__custom_size', _t( 'Custom Size of Longest Edge (px):' ), 'smugmugsilo_text' );
 					if ( $imageSize != 'Custom' ) {
 						$ui->custom_size->class = 'formcontrol hidden';
 					}
@@ -179,14 +177,16 @@ class SmugMugSilo extends Plugin implements MediaSilo
 
 					$ui->append( 'select', 'link_to', 'user:smugmugsilo__link_to', _t( 'Link to:' ) );
 						$ui->link_to->options = $link_to_array;
-					$ui->append( 'select', 'link_to_size', 'user:smugmugsilo__link_to_size', _t( '"Link to" Size of Longest Edge (px):' ) );
+						$ui->link_to->template = 'smugmugsilo_select';
+					$ui->append( 'select', 'link_to_size', 'user:smugmugsilo__link_to_size', _t( 'Link to Size:' ) );
 						// Temporarily remove the "Custom" Option as we don't use it yet
 						unset($imgSizes['Custom']);
 						$ui->link_to_size->options = $imgSizes;
+						$ui->link_to_size->template = 'smugmugsilo_select';
 					if ($user->info->smugmugsilo__link_to != 'image') {
 						$ui->link_to_size->class = 'formcontrol hidden';
 					}
-					$ui->append( 'text', 'link_to_custom_size', 'user:smugmugsilo__link_to_custom_size', _t( 'Custom Size of Longest Edge (px):' ) );
+					$ui->append( 'text', 'link_to_custom_size', 'user:smugmugsilo__link_to_custom_size', _t( 'Custom Size of Longest Edge (px):' ), 'smugmugsilo_text' );
 					if ( $ui->smugmugsilo__link_to_size != 'Custom' ) {
 						$ui->link_to_custom_size->class = 'formcontrol hidden';
 					}
@@ -382,7 +382,6 @@ SMUGMUG_AUTH_JS;
 					    $("#custom_size").removeClass("hidden");
 						    } else {
 					    $("#custom_size").addClass("hidden");
-
 					    }
 				    $("#image_size select").change(function () {
 					    if (this.value == "Custom") {
@@ -730,7 +729,6 @@ UPLOAD_FORM;
 												false,
 												$props
 												);
-							Utils::firedebug($props);
 						}
 						Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
 					}
@@ -795,10 +793,12 @@ UPLOAD_FORM;
 							}
 							if ($props['Caption'] != '') {
 								$props['Caption'] = MultiByte::convert_encoding( strip_tags( $props['Caption'] ) );
-								$props['TruncTitle'] = self::setTitle( $props, $props['Caption'], $squareThumbs );
+								//$props['TruncTitle'] = self::setTitle( $props, $props['Caption'], $squareThumbs );
+								$props['TruncTitle'] = Utils::truncate( $props['Caption'], 25, FALSE );
 							}
 							else {
-								$props['TruncTitle'] = self::setTitle( $props, $props['FileName'], $squareThumbs );
+								//$props['TruncTitle'] = self::setTitle( $props, $props['FileName'], $squareThumbs );
+								$props['TruncTitle'] = Utils::truncate( $props['FileName'], 25, FALSE );
 								$props['Caption'] = MultiByte::convert_encoding( $props['FileName'] );
 							}
 							$props['NiceName'] = $galInfo['NiceName'];
@@ -977,23 +977,29 @@ UPLOAD_FORM;
 		$token = User::identify()->info->smugmugsilo__token;
 
 		if( $token != '' ){
-			$this->phpSmugInit();
-
-		    $this->smug->setToken( "id={$token['Token']['id']}",
-								   "Secret={$token['Token']['Secret']}" );
+			
 			try {
+				$this->phpSmugInit();
+
+				$this->smug->setToken( "id={$token['Token']['id']}",
+								   "Secret={$token['Token']['Secret']}" );
 				$result = $this->smug->auth_checkAccessToken();
 				if( isset( $result ) ){
 					$phpSmug_ok = TRUE;
 				}
 			}
 			catch ( Exception $e ) {
-				if ($e->getCode() == 64 ) {
-					Session::error( 'SmugMug Media Silo:<br />Unable to communicate with SmugMug.' );
+				// TODO: Need to cater for more than
+				if ( $e->getCode() == 64 || $e->getCode() == 500 ) {
+					Session::error( 'SmugMug Media Silo: ' . _t( 'Unable to communicate with SmugMug.' ), 'SmugMug API' );
 					// We can't communicate with SmugMug, but we have a token, so lets assume it's valid for the moment. If it's not we'll soon find out.
 					$phpSmug_ok = TRUE;
-				} else {
-					Session::error( $e->getMessage().' Please re-authorize your plugin.', 'SmugMug API' );
+				}
+				else if ( $e->getCode() == 98 ) {
+					Session::error( 'SmugGal Media Silo: ' . _t( 'SmugMug are having problems so the API has been temporarily disabled. Please try again later.' ), 'SmugMug API' );
+				}
+				else {
+					Session::error( $e->getMessage() . _t( ' Problems detected with your SmugMug Authorization. Please re-authorize.' ), 'SmugMug API' );
 					User::identify()->info->smugmugsilo__token = '';
 					User::identify()->info->commit();
 					unset( $_SESSION['smugmug_token'] );
@@ -1060,7 +1066,7 @@ UPLOAD_FORM;
 		    return $xml;
 	    }
 	    catch( Exception $e ) {
-		    Session::error( 'Currently unable to connect to SmugMug.', 'SmugMug API' );
+		    Session::error( _t( 'Currently unable to connect to SmugMug to grab feed.' ), 'SmugMug API' );
 		    return false;
 	    }
     }
