@@ -2,7 +2,7 @@ Plugin: SmugMug Media Silo
 URL: http://www.lildude.co.uk/projects/smugmug-media-silo-plugin/
 Plugin Author: Colin Seymour - http://colinseymour.co.uk
 Licenses:  SmugMug Media Silo (smugmugsilo.plugin.php) : Apache Software License 2.0
-           phpSmug (lib/phpSmug): GNU Public License v3 & Others - See NOTICE
+           phpSmug (lib/phpSmug): Lesser GNU Public License v3 & Others - See NOTICE
 
 The SmugMug Media Silo plugin implements a Habari silo to access your SmugMug photos
 making it easy to include images into posts and pages and also upload images
