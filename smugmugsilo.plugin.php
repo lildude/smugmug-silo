@@ -64,7 +64,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
     public function action_plugin_ui( $plugin_id, $action )
     {
 	    if ( $plugin_id == $this->plugin_id() ){
-        $this->phpSmugInit();
+			$this->phpSmugInit();
 		    switch ( $action ){
 			    case _t( 'Authorize' ):
 				    if( $this->is_auth() ){
@@ -120,7 +120,6 @@ class SmugMugSilo extends Plugin implements MediaSilo
 							$user->info->smugmugsilo__nickName = $token['User']['NickName'];
 							// Set required default config options at the same time - the others are really optional.
 							$user->info->smugmugsilo__image_size = 'S';
-							$user->info->smugmugsilo__use_thickbox = FALSE ;
 							$user->info->smugmugsilo__link_to = 'nothing';
 							
 							$user->info->commit();
@@ -153,7 +152,6 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					$token = $user->info->smugmugsilo__token;
 					$customSize = $user->info->smugmugsilo__custom_size;
 					$imageSize = $user->info->smugmugsilo__image_size;
-					$useTB = $user->info->smugmugsilo__use_thickbox;
 					$imgSizes = array( 'Ti' => _t( 'Tiny' ), 'Th' => _t( 'Thumbnail' ), 'S' => _t( 'Small' ), 'M' => _t( 'Medium' ), 'L' => _t( 'Large (if available)' ), 'XL' => _t( 'XLarge (if available)' ), 'X2' => _t( 'X2Large (if available)' ), 'X3' => _t( 'X3Large (if available)' ), 'O' => _t( 'Original (if available)' ), 'Custom' => _t( 'Custom (Longest edge in px)' ) );
 
 					$ui = new FormUI( strtolower( get_class( $this ) ) );
@@ -179,8 +177,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 						$ui->link_to->options = $link_to_array;
 						$ui->link_to->template = 'smugmugsilo_select';
 					$ui->append( 'select', 'link_to_size', 'user:smugmugsilo__link_to_size', _t( 'Link to Size:' ) );
-						// Temporarily remove the "Custom" Option as we don't use it yet
-						unset($imgSizes['Custom']);
+						unset($imgSizes['Custom']);	// Temporarily remove the "Custom" Option as we don't use it yet
 						$ui->link_to_size->options = $imgSizes;
 						$ui->link_to_size->template = 'smugmugsilo_select';
 					if ($user->info->smugmugsilo__link_to != 'image') {
@@ -190,7 +187,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					if ( $ui->smugmugsilo__link_to_size != 'Custom' ) {
 						$ui->link_to_custom_size->class = 'formcontrol hidden';
 					}
-					$ui->append( 'submit', 'submit', _t( 'Save Options' ) );
+					$ui->append( 'submit', 'save', _t( 'Save' ) );
 					$ui->on_success( array( $this, 'save_config_msg' ) );
 					$ui->out();
 				break;
@@ -201,7 +198,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	public static function save_config_msg( $ui )
 	{
 		$ui->save();
-		Session::notice( _t( 'Options successfully saved.' ) );
+		Session::notice( _t( 'Options saved' ) );
 		return false;
 	}
 
@@ -210,7 +207,9 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	 */
 	public function action_admin_header( $theme )
 	{
-		Stack::add( 'admin_stylesheet', array( URL::get_from_filesystem( __FILE__ ) . '/lib/css/admin.css', 'screen'), 'admin-css' );
+		if ( Controller::get_var( 'configure' ) == $this->plugin_id ) {
+			Stack::add( 'admin_stylesheet', array( URL::get_from_filesystem( __FILE__ ) . '/lib/css/admin.css', 'screen'), 'admin-css' );
+		}
 	}
 
     /**
@@ -228,8 +227,6 @@ class SmugMugSilo extends Plugin implements MediaSilo
 		    }
 			
 		    $nickName = $user->info->smugmugsilo__nickName;
-			$useThickBox = $user->info->smugmugsilo__use_thickbox;
-			$thickBoxSize = $user->info->smugmugsilo__thickbox_img_size;
 			$lockicon = URL::get_from_filesystem( __FILE__ ) . '/lib/imgs/lock.png';
 
 		    echo <<< SMUGMUG_ENTRY_CSS_1
@@ -440,6 +437,8 @@ SMUGMUG_CONFIG_JS;
 
     /**
      * Clear cache files when de-activating
+	 *
+	 * @return void
      **/
     public function action_plugin_deactivation( $file )
     {
@@ -447,10 +446,8 @@ SMUGMUG_CONFIG_JS;
         /* Uncomment to delete options on de-activation 
         $user = User::identify();
         unset( $user->info->smugmugsilo__token );
-        unset( $user->info->smugmugsilo__thickbox_img_size );
         unset( $user->info->smugmugsilo__custom_size );
         unset( $user->info->smugmugsilo__image_size );
-        unset( $user->info->smugmugsilo__use_thickbox );
         unset( $user->info->smugmugsilo__nickName );
 		unset( $user->info->smugmugsilo__link_to_size );
 		unset( $user->info->smugmugsilo__link_to );
@@ -598,6 +595,8 @@ UPLOAD_FORM;
 
     /**
      * Return a link for the panel at the top of the silo window.
+	 *
+	 * @return string
      */
     public function link_panel( $path, $panel, $title )
     {
@@ -612,6 +611,8 @@ UPLOAD_FORM;
     * Return basic information about this silo
     *   name- The name of the silo, used as the root directory for media in this silo
     *   icon- An icon to represent the silo
+	 *
+	 * @return array
     */
     public function silo_info()
     {
@@ -660,17 +661,16 @@ UPLOAD_FORM;
 															 "ImageKey={$key}",
 															 "Extras={$img_extras}" );
 						$this->status = $this->smug->mode;
-						$props = array( 'TruncTitle' => '&nbsp;', 'FileName' => '&nbsp;', 'Hidden' => 0 );
-						// TODO: Need to determine if square thumbs are in use here and replace NULL below
+						$props = array( 'TruncTitle' => $id, 'FileName' => '&nbsp;', 'Hidden' => 0 );
 						foreach( $info as $name => $value ) {
 							if ($name == 'Caption') {
 								if ($value != '') {
 									$props['Caption'] = MultiByte::convert_encoding( strip_tags( $value ) );
-									$props['TruncTitle'] = self::setTitle( $props, $props['Caption'], NULL );
+									$props['TruncTitle'] = Utils::truncate( $props['Caption'], 23, FALSE );
 								}
 								else {
-									$props['TruncTitle'] = self::setTitle( $props, $props['FileName'], NULL );
-									$props['Caption'] = MultiByte::convert_encoding( $props['FileName'] );
+										$props['TruncTitle'] = Utils::truncate( $props['FileName'], 23, FALSE );
+										$props['Caption'] = MultiByte::convert_encoding( $props['FileName'] );
 								}
 							}
 							else if ($name == 'Album') {
@@ -699,11 +699,10 @@ UPLOAD_FORM;
 				if ( $selected_gallery ) {
 					$cache_name = ( array( 'smugmugsilo', $selected_gallery.$user ) );
 					if ( Cache::has( $cache_name ) ) {
-					$results = Cache::get( $cache_name );
+						$results = Cache::get( $cache_name );
 					}
 					else {
 						$props = array( 'TruncTitle' => '&nbsp;', 'FileName' => '', 'Hidden' => 0 );
-						// TODO: Need to determine if square thumbs are in use here and replace NULL below
 						// TODO: Switch to NiceName URL structure
 						$photos = $this->smug->images_get( "AlbumID={$galmeta[0]}",
 														   "AlbumKey={$galmeta[1]}",
@@ -717,10 +716,10 @@ UPLOAD_FORM;
 							}
 							if ($props['Caption'] != '') {
 								$props['Caption'] = MultiByte::convert_encoding( strip_tags( $props['Caption'] ) );
-								$props['TruncTitle'] = self::setTitle( $props, $props['Caption'], $squareThumbs );
+								$props['TruncTitle'] = Utils::truncate( $props['Caption'], 23, FALSE );
 							}
 							else {
-								$props['TruncTitle'] = self::setTitle( $props, $props['FileName'], $squareThumbs );
+								$props['TruncTitle'] = Utils::truncate( $props['FileName'], 23, FALSE );
 								$props['Caption'] = MultiByte::convert_encoding( $props['FileName'] );
 							}
 							unset( $props['FileName'] );
@@ -793,12 +792,10 @@ UPLOAD_FORM;
 							}
 							if ($props['Caption'] != '') {
 								$props['Caption'] = MultiByte::convert_encoding( strip_tags( $props['Caption'] ) );
-								//$props['TruncTitle'] = self::setTitle( $props, $props['Caption'], $squareThumbs );
-								$props['TruncTitle'] = Utils::truncate( $props['Caption'], 25, FALSE );
+								$props['TruncTitle'] = Utils::truncate( $props['Caption'], 23, FALSE );
 							}
 							else {
-								//$props['TruncTitle'] = self::setTitle( $props, $props['FileName'], $squareThumbs );
-								$props['TruncTitle'] = Utils::truncate( $props['FileName'], 25, FALSE );
+								$props['TruncTitle'] = Utils::truncate( $props['FileName'], 23, FALSE );
 								$props['Caption'] = MultiByte::convert_encoding( $props['FileName'] );
 							}
 							$props['NiceName'] = $galInfo['NiceName'];
@@ -933,25 +930,9 @@ UPLOAD_FORM;
 	/************************* HELPER METHODS *********************************/
 
 	/**
-	 * Function for easily setting the image title
-	 *
-	 * SmugMug has no concept of Titles, so we strip all HTML tags, split the
-	 * caption by new lines and truncate the first line to 23 chars and use this
-	 * for the title. If the title is empty (ie, there's no caption), we rely
-	 * on the filename.
-	 */
-	private static function setTitle( $props, $value, $square )
-	{
-		$len = ($square) ? 20 : 25;
-		$val = nl2br( strip_tags( $value ) );
-		$val = explode( '<br />', $val );
-		$title = ( $props['Hidden'] == 1 ) ? self::truncate( $val[0], $len ) : self::truncate( $val[0], $len-3 );
-		return MultiByte::convert_encoding( $title );
-	}
-
-	/**
 	 * Simple function to call once to clear multiple cache locations
 	 *
+	 * @return void
 	 */
 	private function clearCaches( )
 	{
@@ -964,7 +945,8 @@ UPLOAD_FORM;
 
     /**
      * Check if the application has been authorised to access SmugMug
-	 * 
+	 *
+	 * @return boolean
      **/
     private function is_auth()
     {
