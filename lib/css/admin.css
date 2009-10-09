@@ -1,5 +1,6 @@
 /* SmugMug Silo specific admin css */
 div#silo_smugmug .last-child li {padding-right: 30px !important; }
+div#save.formcontrol { padding-bottom: 25px !important; }
 div#silo_smugmug li.media img { display: block; }
 div#silo_smugmug li.media { min-width: 102px !important; }
 div#silo_smugmug ul.mediaactions.dropbutton { min-width: 0 !important; max-width: 11em; margin: 0 !important; float: left; }

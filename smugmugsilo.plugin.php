@@ -19,6 +19,9 @@
 
 /**
  * SmugMug Silo
+ *
+ * @TODO: Implement complete multi-user support - need to workout how Habari does this first ;-)
+ * 
  */
 
 class SmugMugSilo extends Plugin implements MediaSilo
@@ -28,6 +31,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
     const APIKEY = '2OSeqHatM6uOQghQssLtkaBUcc9TpLq8';
     const OAUTHSECRET = 'afc04b3e9650cd342fc91072d939405d';
     const CACHE_EXPIRY = 86400;	// seconds.  This is 24 hours.
+
     private $status;
     private $version = '1.0';
 
@@ -123,7 +127,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 							$user->info->smugmugsilo__link_to = 'nothing';
 							
 							$user->info->commit();
-						    EventLog::log( _t( 'Authorization Confirmed.' ) );
+						    Session::notice( _t( 'Authorization Confirmed.' ) );
 						    echo '<form><p>'._t( 'Your authorization was set successfully. You can now <b><a href="'.$config_url.'">configure</a></b> the SmugMug Silo to suit your needs.' ).'</p></form>';
 					    }
 					    else{
@@ -141,7 +145,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					$reauth_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Authorize' ) ) . '#plugin_options';
 					echo '<form><p>'._t( 'The SmugMug Silo Plugin authorization has been deleted. Please ensure you revoke access from your SmugMug Control Panel too.' ).'<p>';
 					echo "<p>"._t( 'Do you want to ' )."<b><a href=\"{$reauth_url}\">"._t( 're-authorize this plugin' )."</a></b>?<p></form>";
-					EventLog::log( _t( 'De-authorized' ) );
+					Session::notice( _t( 'De-authorized' ) );
 				break;
 
 			    case _t( 'Configure' ) :
@@ -207,7 +211,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	 */
 	public function action_admin_header( $theme )
 	{
-		if ( Controller::get_var( 'configure' ) == $this->plugin_id ) {
+		if ( Controller::get_var( 'configure' ) == $this->plugin_id || Controller::get_var( 'page' ) == 'publish' ) {
 			Stack::add( 'admin_stylesheet', array( URL::get_from_filesystem( __FILE__ ) . '/lib/css/admin.css', 'screen'), 'admin-css' );
 		}
 	}
@@ -443,7 +447,7 @@ SMUGMUG_CONFIG_JS;
     public function action_plugin_deactivation( $file )
     {
       if ( Plugins::id_from_file( $file ) == Plugins::id_from_file( __FILE__ ) ) {
-        /* Uncomment to delete options on de-activation 
+        /* Uncomment to delete options on de-activation *
         $user = User::identify();
         unset( $user->info->smugmugsilo__token );
         unset( $user->info->smugmugsilo__custom_size );
