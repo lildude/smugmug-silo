@@ -8,6 +8,7 @@ The SmugMug Media Silo plugin implements a Habari silo to access your SmugMug ph
 making it easy to include images into posts and pages and also upload images
 directly to SmugMug.
 
+Not a SmugMug user yet?  Get $5 off your first year using this reference code: 2ZxFXMC19qOxU
 
 FUNCTIONALITY
 -------------
@@ -91,7 +92,7 @@ does NOT change the order. If you wish to change the order or any other settings
 your images, you will need to do so from within SmugMug’s own administration controls.
 
 Each image in the silo has a title associated with it. This will either be up to the first
-25 characters of the first line of the caption (you can hover over the title to
+23 characters of the first line of the caption (you can hover over the title to
 view the full caption) or the image's filename.
 
 
