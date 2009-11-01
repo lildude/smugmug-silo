@@ -195,6 +195,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					$ui->on_success( array( $this, 'save_config_msg' ) );
 					$ui->out();
 				break;
+				unset($this->smug);
 		    }
 	    }
     }
