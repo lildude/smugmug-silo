@@ -648,7 +648,7 @@ UPLOAD_FORM;
 		switch( $section ) {
 			case 'recentPhotos':
 				$cache_name = ( array( 'smugmugsilo', "recentphotos".$user ) );
-				if ( Cache::has( $cache_name ) ) {
+				if ( Cache::has( $cache_name ) && !Cache::expired( $cache_name ) ) {
 					$results = Cache::get( $cache_name );
 				}
 				else {
@@ -703,7 +703,7 @@ UPLOAD_FORM;
 				$galmeta = explode( '_', $selected_gallery );
 				if ( $selected_gallery ) {
 					$cache_name = ( array( 'smugmugsilo', $selected_gallery.$user ) );
-					if ( Cache::has( $cache_name ) ) {
+					if ( Cache::has( $cache_name ) && !Cache::expired( $cache_name ) ) {
 						$results = Cache::get( $cache_name );
 					}
 					else {
@@ -739,7 +739,7 @@ UPLOAD_FORM;
 				}
 				else {
 					$cache_name = ( array( 'smugmugsilo', "recentgalleries".$user ) );
-					if ( Cache::has( $cache_name ) ) {
+					if ( Cache::has( $cache_name ) && !Cache::expired( $cache_name ) ) {
 						$results = Cache::get( $cache_name );
 					}
 					else {
@@ -777,7 +777,7 @@ UPLOAD_FORM;
 				$galmeta = explode( '_', $selected_gallery );
 				if ( $selected_gallery ) {
 					$cache_name = ( array( 'smugmugsilo', $selected_gallery ) );
-					if ( Cache::has( $cache_name ) ) {
+					if ( Cache::has( $cache_name ) && !Cache::expired( $cache_name ) ) {
 						$results = Cache::get( $cache_name );
 					}
 					else {
@@ -1034,7 +1034,7 @@ UPLOAD_FORM;
 	    }
 	    $url = "http://api.smugmug.com/hack/feed.mg?{$urlEnd}";
 	    $this->cache_name = array ('smugmugsilo', "{$urlEnd}".$nickName );
-	    if ( Cache::has( $this->cache_name ) ) {
+	    if ( Cache::has( $this->cache_name ) && !Cache::expired( $this->cache_name ) ) {
 		    $response = Cache::get( $this->cache_name );
 	    }
 		else {
