@@ -158,7 +158,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 					$imageSize = $user->info->smugmugsilo__image_size;
 					$imgSizes = array( 'Ti' => _t( 'Tiny' ), 'Th' => _t( 'Thumbnail' ), 'S' => _t( 'Small' ), 'M' => _t( 'Medium' ), 'L' => _t( 'Large (if available)' ), 'XL' => _t( 'XLarge (if available)' ), 'X2' => _t( 'X2Large (if available)' ), 'X3' => _t( 'X3Large (if available)' ), 'O' => _t( 'Original (if available)' ), 'Custom' => _t( 'Custom (Longest edge in px)' ) );
 
-					$ui = new FormUI( strtolower( get_class( $this ) ) );
+					$ui = new FormUI( strtolower( __CLASS__ ) );
 					$ui->append( 'select', 'image_size','user:smugmugsilo__image_size', _t( 'Default size for images in Posts:' ) );
 						$ui->image_size->template = 'smugmugsilo_select';
 					$ui->append( 'text', 'custom_size', 'user:smugmugsilo__custom_size', _t( 'Custom Size of Longest Edge (px):' ), 'smugmugsilo_text' );
@@ -220,7 +220,8 @@ class SmugMugSilo extends Plugin implements MediaSilo
     /**
      * Add custom Javascript controls to the footer of the admin interface
      **/
-    public function action_admin_footer( $theme ) {
+    public function action_admin_footer( $theme )
+	{
 	    if( Controller::get_var( 'page' ) == 'publish' ) {
 			$user = User::identify();
 			$size = $user->info->smugmugsilo__image_size;
