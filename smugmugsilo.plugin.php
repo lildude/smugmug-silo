@@ -1074,7 +1074,7 @@ UPLOAD_FORM;
 								  "cache_dir=". HABARI_PATH . '/user/cache/',
 								  "cache_expire=".self::CACHE_EXPIRY );
 		// Call a method we know will succeed, so we can get the mode set
-		$this->smug->reflection_getMethods();
+		//$this->smug->reflection_getMethods();
 	}
 }
 
