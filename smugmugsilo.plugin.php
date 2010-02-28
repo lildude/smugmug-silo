@@ -458,9 +458,10 @@ SMUGMUG_CONFIG_JS;
 		unset( $user->info->smugmugsilo__link_to_size );
 		unset( $user->info->smugmugsilo__link_to );
         $user->info->commit();
-        */
-        $this->clearCaches();
-        rmdir( $this->smug->cache_dir );
+        /* */
+		  // This will fail if we can't access SmugMug for some reason.
+			$this->clearCaches();
+			rmdir( $this->smug->cache_dir );
       }
     }
 
