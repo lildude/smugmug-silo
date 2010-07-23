@@ -33,7 +33,6 @@ class SmugMugSilo extends Plugin implements MediaSilo
     const CACHE_EXPIRY = 86400;	// seconds.  This is 24 hours.
 
     private $status;
-    private $version = '1.0';
 
     /**
      * The help message - it provides a larger explanation of what this plugin
@@ -56,7 +55,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
      */
     public function action_update_check()
     {
-		Update::add( 'SmugMugSilo', '4A881D3E-E643-11DD-8D7A-AA9D55D89593', $this->version );
+		Update::add( 'SmugMugSilo', '4A881D3E-E643-11DD-8D7A-AA9D55D89593', $this->info->version );
     }
 
     /**
