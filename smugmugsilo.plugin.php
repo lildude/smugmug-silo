@@ -35,30 +35,6 @@ class SmugMugSilo extends Plugin implements MediaSilo
     private $status;
 
     /**
-     * The help message - it provides a larger explanation of what this plugin
-     * does
-     *
-     * @return string
-     */
-    public function help()
-    {
-		return	_t( 'The ' ) . '<a href="http://www.lildude.co.uk/projects/smugmug-media-silo-plugin/">' . _t( 'SmugMug Media Silo plugin' ) . '</a> '  .
-				_t( 'implements a Habari silo to access your SmugMug photos making it easy to include images into posts and pages and also upload images 
-					 directly to SmugMug.' );
-    }
-
-    /**
-     * Beacon Support for Update checking
-     *
-     * @access public
-     * @return void
-     */
-    public function action_update_check()
-    {
-		Update::add( 'SmugMugSilo', '4A881D3E-E643-11DD-8D7A-AA9D55D89593', $this->info->version );
-    }
-
-    /**
     * Respond to the user selecting an action on the plugin page
     *
     * @param string $plugin_id The string id of the acted-upon plugin
