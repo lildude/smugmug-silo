@@ -40,139 +40,136 @@ class SmugMugSilo extends Plugin implements MediaSilo
     * @param string $plugin_id The string id of the acted-upon plugin
     * @param string $action The action string supplied via the filter_plugin_config hook
     */
-    public function action_plugin_ui( $plugin_id, $action )
+    public function action_plugin_ui_authorise()
     {
-	    if ( $plugin_id == $this->plugin_id() ){
-			$this->phpSmugInit();
-		    switch ( $action ){
-			    case _t( 'Authorize' ):
-				    if( $this->is_auth() ){
-					    $deauth_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'De-Authorize' ) ) . '#plugin_options';
-					    echo '<p>'._t( 'You have already successfully authorized Habari to access your SmugMug account' ).'.</p>';
-					    echo '<p>'._t( 'Do you want to ' )."<a href=\"{$deauth_url}\">"._t( 'revoke authorization' ).'</a>?</p>';
-				    }
-					else {
-						try {
-							if ($this->smug->mode == 'read-only') {
-								echo '<form><p>'._t('SmugMug is currently in read-only mode, so authorization is not possible. Please try again later.').'</p></form>';
-							} else {
-								$reqToken = $this->smug->auth_getRequestToken();
-								$_SESSION['SmugGalReqToken'] = serialize( $reqToken );
-								$confirm_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'confirm' ) ) . '#plugin_options';
-								echo '<form><table style="border-spacing: 5px; width: 100%;"><tr><td>'._t( 'To use this plugin, you must authorize Habari to have access to your SmugMug account' ).".</td>";
-								echo "<td><button id='auth' style='margin-left:10px;' onclick=\"window.open('{$this->smug->authorize( "Access=Full", "Permissions=Modify" )}', '_blank').focus();return false;\">"._t( 'Authorize' )."</button></td></tr>";
-								echo '<tr><td>'._t( 'When you have completed the authorization on SmugMug, return here and confirm that the authorization was successful.' )."</td>";
-								echo "<td><button disabled='true' id='conf' style='margin-left:10px;' onclick=\"location.href='{$confirm_url}'; return false;\">"._t( 'Confirm' )."</button></td></tr>";
-								echo '</table></form>';
-							}
-						}
-						catch ( Exception $e ) {
-							if ( $e->getCode() == 64 || $e->getCode() == 500 ) {
-								$msg = 'Unable to communicate with SmugMug. Maybe it\'s down';
-							} else {
-								$msg = $e->getMessage();
-							}
-							echo "<br /><p>Ooops. There was a problem: <strong>{$msg}</strong>. <a href='http://smugmug.wordpress.com/'>Check SmugMug notices</a>.</p>";
-						}
-				    }
-				break;
+		$this->phpSmugInit();
+		if( $this->is_auth() ){
+			$deauth_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'De-Authorize' ) ) . '#plugin_options';
+			echo '<p>'._t( 'You have already successfully authorized Habari to access your SmugMug account' ).'.</p>';
+			echo '<p>'._t( 'Do you want to ' )."<a href=\"{$deauth_url}\">"._t( 'revoke authorization' ).'</a>?</p>';
+		}
+		else {
+			try {
+				if ($this->smug->mode == 'read-only') {
+					echo '<form><p>'._t('SmugMug is currently in read-only mode, so authorization is not possible. Please try again later.').'</p></form>';
+				} else {
+					$reqToken = $this->smug->auth_getRequestToken();
+					$_SESSION['SmugGalReqToken'] = serialize( $reqToken );
+					$confirm_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'confirm' ) ) . '#plugin_options';
+					echo '<form><table style="border-spacing: 5px; width: 100%;"><tr><td>'._t( 'To use this plugin, you must authorize Habari to have access to your SmugMug account' ).".</td>";
+					echo "<td><button id='auth' style='margin-left:10px;' onclick=\"window.open('{$this->smug->authorize( "Access=Full", "Permissions=Modify" )}', '_blank').focus();return false;\">"._t( 'Authorize' )."</button></td></tr>";
+					echo '<tr><td>'._t( 'When you have completed the authorization on SmugMug, return here and confirm that the authorization was successful.' )."</td>";
+					echo "<td><button disabled='true' id='conf' style='margin-left:10px;' onclick=\"location.href='{$confirm_url}'; return false;\">"._t( 'Confirm' )."</button></td></tr>";
+					echo '</table></form>';
+				}
+			}
+			catch ( Exception $e ) {
+				if ( $e->getCode() == 64 || $e->getCode() == 500 ) {
+					$msg = 'Unable to communicate with SmugMug. Maybe it\'s down';
+				} else {
+					$msg = $e->getMessage();
+				}
+				echo "<br /><p>Ooops. There was a problem: <strong>{$msg}</strong>. <a href='http://smugmug.wordpress.com/'>Check SmugMug notices</a>.</p>";
+			}
+		}
+	}
 
-			    case 'confirm':
-				    if( !isset( $_SESSION['SmugGalReqToken'] ) ){
-					    $auth_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Authorize' ) ) . '#plugin_options';
-					    echo '<form><p>'._t( 'Either you have already authorized Habari to access your SmugMug account, or you have not yet done so.  Please' ).'<strong><a href="' . $auth_url . '">'._t( 'try again' ).'</a></strong>.</p></form>';
-				    }
-					else {
-					    $reqToken = unserialize( $_SESSION['SmugGalReqToken'] );
-					    $this->smug->setToken( "id={$reqToken['id']}", "Secret={$reqToken['Secret']}" );
-					    $token = $this->smug->auth_getAccessToken();
+	public function action_plugin_ui_confirm()
+	{
+		if( !isset( $_SESSION['SmugGalReqToken'] ) ){
+			$auth_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Authorize' ) ) . '#plugin_options';
+			echo '<form><p>'._t( 'Either you have already authorized Habari to access your SmugMug account, or you have not yet done so.  Please' ).'<strong><a href="' . $auth_url . '">'._t( 'try again' ).'</a></strong>.</p></form>';
+		}
+		else {
+			$reqToken = unserialize( $_SESSION['SmugGalReqToken'] );
+			$this->smug->setToken( "id={$reqToken['id']}", "Secret={$reqToken['Secret']}" );
+			$token = $this->smug->auth_getAccessToken();
 
-					    // Lets speed things up a bit by pre-fetching all the gallery info and caching it
-					    $this->smug->setToken( "id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}" );
-					    $this->smug->albums_get();
+			// Lets speed things up a bit by pre-fetching all the gallery info and caching it
+			$this->smug->setToken( "id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}" );
+			$this->smug->albums_get();
 
-					    $config_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Configure' ) ) . '#plugin_options';
+			$config_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Configure' ) ) . '#plugin_options';
 
-					    if( isset( $token ) ){
-							$user = User::identify();
-							$user->info->smugmugsilo__token = $token;
-							$user->info->smugmugsilo__nickName = $token['User']['NickName'];
-							// Set required default config options at the same time - the others are really optional.
-							$user->info->smugmugsilo__image_size = 'S';
-							$user->info->smugmugsilo__link_to = 'nothing';
-							
-							$user->info->commit();
-						    Session::notice( _t( 'Authorization Confirmed.' ) );
-						    echo '<form><p>'._t( 'Your authorization was set successfully. You can now <b><a href="'.$config_url.'">configure</a></b> the SmugMug Silo to suit your needs.' ).'</p></form>';
-					    }
-					    else{
-						    echo '<form><p>'._t( 'There was a problem with your authorization:' ).'</p></form>';
-					    }
-					    unset( $_SESSION['SmugGalReqToken'] );
-				    }
-				break;
+			if( isset( $token ) ){
+				$user = User::identify();
+				$user->info->smugmugsilo__token = $token;
+				$user->info->smugmugsilo__nickName = $token['User']['NickName'];
+				// Set required default config options at the same time - the others are really optional.
+				$user->info->smugmugsilo__image_size = 'S';
+				$user->info->smugmugsilo__link_to = 'nothing';
 
-			    case _t( 'De-Authorize' ):
-					User::identify()->info->smugmugsilo__token = '';
-					User::identify()->info->commit();
-					// Clear the cache
-					$this->clearCaches();
-					$reauth_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Authorize' ) ) . '#plugin_options';
-					echo '<form><p>'._t( 'The SmugMug Silo Plugin authorization has been deleted. Please ensure you revoke access from your SmugMug Control Panel too.' ).'<p>';
-					echo "<p>"._t( 'Do you want to ' )."<b><a href=\"{$reauth_url}\">"._t( 're-authorize this plugin' )."</a></b>?<p></form>";
-					Session::notice( _t( 'De-authorized' ) );
-				break;
+				$user->info->commit();
+				Session::notice( _t( 'Authorization Confirmed.' ) );
+				echo '<form><p>'._t( 'Your authorization was set successfully. You can now <b><a href="'.$config_url.'">configure</a></b> the SmugMug Silo to suit your needs.' ).'</p></form>';
+			}
+			else{
+				echo '<form><p>'._t( 'There was a problem with your authorization:' ).'</p></form>';
+			}
+			unset( $_SESSION['SmugGalReqToken'] );
+		}
+	}
 
-			    case _t( 'Configure' ) :
-					$this->add_template( 'smugmugsilo_text', dirname( $this->get_file() ) . '/lib/formcontrols/smugmugsilo_text.php' );
-					$this->add_template( 'smugmugsilo_select', dirname( $this->get_file() ) . '/lib/formcontrols/smugmugsilo_select.php' );
-					
-					$user = User::identify();
-					$token = $user->info->smugmugsilo__token;
-					$customSize = $user->info->smugmugsilo__custom_size;
-					$imageSize = $user->info->smugmugsilo__image_size;
-					$imgSizes = array( 'Ti' => _t( 'Tiny' ), 'Th' => _t( 'Thumbnail' ), 'S' => _t( 'Small' ), 'M' => _t( 'Medium' ), 'L' => _t( 'Large (if available)' ), 'XL' => _t( 'XLarge (if available)' ), 'X2' => _t( 'X2Large (if available)' ), 'X3' => _t( 'X3Large (if available)' ), 'O' => _t( 'Original (if available)' ), 'Custom' => _t( 'Custom (Longest edge in px)' ) );
+	public function action_plugin_ui_deauthorise()
+	{
+		User::identify()->info->smugmugsilo__token = '';
+		User::identify()->info->commit();
+		// Clear the cache
+		$this->clearCaches();
+		$reauth_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Authorize' ) ) . '#plugin_options';
+		echo '<form><p>'._t( 'The SmugMug Silo Plugin authorization has been deleted. Please ensure you revoke access from your SmugMug Control Panel too.' ).'<p>';
+		echo "<p>"._t( 'Do you want to ' )."<b><a href=\"{$reauth_url}\">"._t( 're-authorize this plugin' )."</a></b>?<p></form>";
+		Session::notice( _t( 'De-authorized' ) );
+	}
 
-					$ui = new FormUI( strtolower( __CLASS__ ) );
-					$ui->append( 'select', 'image_size','user:smugmugsilo__image_size', _t( 'Default size for images in Posts:' ) );
-						$ui->image_size->template = 'smugmugsilo_select';
-					$ui->append( 'text', 'custom_size', 'user:smugmugsilo__custom_size', _t( 'Custom Size of Longest Edge (px):' ), 'smugmugsilo_text' );
-					if ( $imageSize != 'Custom' ) {
-						$ui->custom_size->class = 'formcontrol hidden';
-					}
-					$ui->image_size->options = $imgSizes;
+	public function action_plugin_ui_configure()
+	{
+		$this->add_template( 'smugmugsilo_text', dirname( $this->get_file() ) . '/lib/formcontrols/smugmugsilo_text.php' );
+		$this->add_template( 'smugmugsilo_select', dirname( $this->get_file() ) . '/lib/formcontrols/smugmugsilo_select.php' );
 
-					$link_to_array = array (
-											'nothing' => _t( 'Nothing'),
-											'image' => _t( 'Larger Image'),
-											'smugmug' => _t( 'SmugMug Gallery' )
-											);
-					/* TODO: Coming soon
-					if ( Plugins::is_loaded( 'SmugGal' ) ) {
-						$link_to_array['smuggal'] = _t( 'SmugGal Gallery' );
-					} */
+		$user = User::identify();
+		$token = $user->info->smugmugsilo__token;
+		$customSize = $user->info->smugmugsilo__custom_size;
+		$imageSize = $user->info->smugmugsilo__image_size;
+		$imgSizes = array( 'Ti' => _t( 'Tiny' ), 'Th' => _t( 'Thumbnail' ), 'S' => _t( 'Small' ), 'M' => _t( 'Medium' ), 'L' => _t( 'Large (if available)' ), 'XL' => _t( 'XLarge (if available)' ), 'X2' => _t( 'X2Large (if available)' ), 'X3' => _t( 'X3Large (if available)' ), 'O' => _t( 'Original (if available)' ), 'Custom' => _t( 'Custom (Longest edge in px)' ) );
 
-					$ui->append( 'select', 'link_to', 'user:smugmugsilo__link_to', _t( 'Link to:' ) );
-						$ui->link_to->options = $link_to_array;
-						$ui->link_to->template = 'smugmugsilo_select';
-					$ui->append( 'select', 'link_to_size', 'user:smugmugsilo__link_to_size', _t( 'Link to Size:' ) );
-						unset($imgSizes['Custom']);	// Temporarily remove the "Custom" Option as we don't use it yet
-						$ui->link_to_size->options = $imgSizes;
-						$ui->link_to_size->template = 'smugmugsilo_select';
-					if ($user->info->smugmugsilo__link_to != 'image') {
-						$ui->link_to_size->class = 'formcontrol hidden';
-					}
-					$ui->append( 'text', 'link_to_custom_size', 'user:smugmugsilo__link_to_custom_size', _t( 'Custom Size of Longest Edge (px):' ), 'smugmugsilo_text' );
-					if ( $ui->smugmugsilo__link_to_size != 'Custom' ) {
-						$ui->link_to_custom_size->class = 'formcontrol hidden';
-					}
-					$ui->append( 'submit', 'save', _t( 'Save' ) );
-					$ui->on_success( array( $this, 'save_config_msg' ) );
-					$ui->out();
-				break;
-				unset($this->smug);
-		    }
-	    }
+		$ui = new FormUI( strtolower( __CLASS__ ) );
+		$ui->append( 'select', 'image_size','user:smugmugsilo__image_size', _t( 'Default size for images in Posts:' ) );
+			$ui->image_size->template = 'smugmugsilo_select';
+		$ui->append( 'text', 'custom_size', 'user:smugmugsilo__custom_size', _t( 'Custom Size of Longest Edge (px):' ), 'smugmugsilo_text' );
+		if ( $imageSize != 'Custom' ) {
+			$ui->custom_size->class = 'formcontrol hidden';
+		}
+		$ui->image_size->options = $imgSizes;
+
+		$link_to_array = array (
+								'nothing' => _t( 'Nothing'),
+								'image' => _t( 'Larger Image'),
+								'smugmug' => _t( 'SmugMug Gallery' )
+								);
+		/* TODO: Coming soon
+		if ( Plugins::is_loaded( 'SmugGal' ) ) {
+			$link_to_array['smuggal'] = _t( 'SmugGal Gallery' );
+		} */
+
+		$ui->append( 'select', 'link_to', 'user:smugmugsilo__link_to', _t( 'Link to:' ) );
+			$ui->link_to->options = $link_to_array;
+			$ui->link_to->template = 'smugmugsilo_select';
+		$ui->append( 'select', 'link_to_size', 'user:smugmugsilo__link_to_size', _t( 'Link to Size:' ) );
+			unset($imgSizes['Custom']);	// Temporarily remove the "Custom" Option as we don't use it yet
+			$ui->link_to_size->options = $imgSizes;
+			$ui->link_to_size->template = 'smugmugsilo_select';
+		if ($user->info->smugmugsilo__link_to != 'image') {
+			$ui->link_to_size->class = 'formcontrol hidden';
+		}
+		$ui->append( 'text', 'link_to_custom_size', 'user:smugmugsilo__link_to_custom_size', _t( 'Custom Size of Longest Edge (px):' ), 'smugmugsilo_text' );
+		if ( $ui->smugmugsilo__link_to_size != 'Custom' ) {
+			$ui->link_to_custom_size->class = 'formcontrol hidden';
+		}
+		$ui->append( 'submit', 'save', _t( 'Save' ) );
+		$ui->on_success( array( $this, 'save_config_msg' ) );
+		$ui->out();
+		unset($this->smug);
     }
 
 	public static function save_config_msg( $ui )
@@ -562,16 +559,14 @@ UPLOAD_FORM;
     */
     public function filter_plugin_config( $actions, $plugin_id )
     {
-	    if ( $plugin_id == $this->plugin_id() ){
-		    $phpSmug_ok = $this->is_auth();
-		    if( $phpSmug_ok ){
-			    $actions[] = _t( 'Configure' );
-			    $actions[] = _t( 'De-Authorize' );
-		    }
-			else {
-			    $actions[] = _t( 'Authorize' );
-		    }
-	    }
+		$phpSmug_ok = $this->is_auth();
+		if( $phpSmug_ok ){
+			$actions['configure'] = _t( 'Configure' );
+			$actions['deauthorise'] = _t( 'De-Authorize' );
+		}
+		else {
+			$actions['authorise'] = _t( 'Authorize' );
+		}
 	    return $actions;
     }
 
