@@ -1039,8 +1039,6 @@ UPLOAD_FORM;
 		$this->smug = new phpSmug( "APIKey=".self::APIKEY,
 								   "AppName={$this->info->name}/{$this->info->version}",
 								   "OAuthSecret=".self::OAUTHSECRET );
-	   $this->smug->setAdapter('curl'); // force use of curl
-		$this->smug->setProxy("server=emeacache.uk.oracle.com", "port=80");
 		// Enable caching.  This will be for 24 hours, but will be cleared whenever
 		// a file is uploaded via this plugin or manually via the silo.
 		$this->smug->enableCache( "type=fs",
