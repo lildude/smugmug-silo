@@ -1044,6 +1044,8 @@ UPLOAD_FORM;
 		$this->smug->enableCache( "type=fs",
 								  "cache_dir=". HABARI_PATH . '/user/cache/',
 								  "cache_expire=".self::CACHE_EXPIRY );
+		
+		$this->smug->setProxy("server=emeachace.uk.oracle.com", "port=80");
 		// Call a method we know will succeed, so we can get the mode set
 		//$this->smug->reflection_getMethods();
 	}
