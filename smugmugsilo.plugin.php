@@ -44,7 +44,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
     {
 		$this->phpSmugInit();
 		if( $this->is_auth() ){
-			$deauth_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'De-Authorize' ) ) . '#plugin_options';
+			$deauth_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'deuthorize' ) ) . '#plugin_options';
 			echo '<p>'._t( 'You have already successfully authorized Habari to access your SmugMug account' ).'.</p>';
 			echo '<p>'._t( 'Do you want to ' )."<a href=\"{$deauth_url}\">"._t( 'revoke authorization' ).'</a>?</p>';
 		}
@@ -69,7 +69,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 				} else {
 					$msg = $e->getMessage();
 				}
-				echo "<br /><p>Ooops. There was a problem: <strong>{$msg}</strong>. <a href='http://smugmug.wordpress.com/'>Check SmugMug notices</a>.</p>";
+				echo "<br /><p>Ooops. There was a problem: <strong>{$msg}</strong>. <a href='http://status.smugmug.com/'>Check SmugMug notices</a>.</p>";
 			}
 		}
 	}
@@ -77,19 +77,20 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	public function action_plugin_ui_confirm()
 	{
 		if( !isset( $_SESSION['SmugGalReqToken'] ) ){
-			$auth_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Authorize' ) ) . '#plugin_options';
+			$auth_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'authorize' ) ) . '#plugin_options';
 			echo '<form><p>'._t( 'Either you have already authorized Habari to access your SmugMug account, or you have not yet done so.  Please' ).'<strong><a href="' . $auth_url . '">'._t( 'try again' ).'</a></strong>.</p></form>';
 		}
 		else {
+			$this->phpSmugInit();
 			$reqToken = unserialize( $_SESSION['SmugGalReqToken'] );
-			$this->smug->setToken( "id={$reqToken['id']}", "Secret={$reqToken['Secret']}" );
+			$this->smug->setToken( "id={$reqToken['Token']['id']}", "Secret={$reqToken['Token']['Secret']}" );
 			$token = $this->smug->auth_getAccessToken();
 
 			// Lets speed things up a bit by pre-fetching all the gallery info and caching it
 			$this->smug->setToken( "id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}" );
 			$this->smug->albums_get();
 
-			$config_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Configure' ) ) . '#plugin_options';
+			$config_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'configure' ) ) . '#plugin_options';
 
 			if( isset( $token ) ){
 				$user = User::identify();
@@ -116,7 +117,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 		User::identify()->info->commit();
 		// Clear the cache
 		$this->clearCaches();
-		$reauth_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'Authorize' ) ) . '#plugin_options';
+		$reauth_url = URL::get( 'admin', array( 'page' => 'plugins', 'configure' => $this->plugin_id(), 'configaction' => 'authorize' ) ) . '#plugin_options';
 		echo '<form><p>'._t( 'The SmugMug Silo Plugin authorization has been deleted. Please ensure you revoke access from your SmugMug Control Panel too.' ).'<p>';
 		echo "<p>"._t( 'Do you want to ' )."<b><a href=\"{$reauth_url}\">"._t( 're-authorize this plugin' )."</a></b>?<p></form>";
 		Session::notice( _t( 'De-authorized' ) );
@@ -336,7 +337,7 @@ SMUGMUG_ENTRY_CSS_2;
 	    // Javascript required for config panel
 	    if ( Controller::get_var( 'configure' ) == $this->plugin_id ) {
 		    // Authorize specific Javascript
-		    if ( Controller::get_var( 'configaction' ) == 'Authorize' ) {
+		    if ( Controller::get_var( 'configaction' ) == 'authorise' ) {
 			    echo <<< SMUGMUG_AUTH_JS
 				    <script type="text/javascript">
 				    $("#auth").toggle(
@@ -350,7 +351,7 @@ SMUGMUG_ENTRY_CSS_2;
 SMUGMUG_AUTH_JS;
 		    }
 		    // Configure specific Javascript
-		    if ( Controller::get_var( 'configaction' ) == 'Configure' ) {
+		    if ( Controller::get_var( 'configaction' ) == 'configure' ) {
 			    echo <<< SMUGMUG_CONFIG_JS
 				    <script type="text/javascript">
 				    if ($("#image_size select :selected").val() == 'Custom') {
@@ -1038,14 +1039,15 @@ UPLOAD_FORM;
 		$this->smug = new phpSmug( "APIKey=".self::APIKEY,
 								   "AppName={$this->info->name}/{$this->info->version}",
 								   "OAuthSecret=".self::OAUTHSECRET );
-
+	   $this->smug->setAdapter('curl'); // force use of curl
+		$this->smug->setProxy("server=emeacache.uk.oracle.com", "port=80");
 		// Enable caching.  This will be for 24 hours, but will be cleared whenever
 		// a file is uploaded via this plugin or manually via the silo.
 		$this->smug->enableCache( "type=fs",
 								  "cache_dir=". HABARI_PATH . '/user/cache/',
 								  "cache_expire=".self::CACHE_EXPIRY );
 		
-		$this->smug->setProxy("server=emeachace.uk.oracle.com", "port=80");
+		
 		// Call a method we know will succeed, so we can get the mode set
 		//$this->smug->reflection_getMethods();
 	}
