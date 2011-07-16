@@ -125,8 +125,9 @@ class SmugMugSilo extends Plugin implements MediaSilo
 
 	public function action_plugin_ui_configure()
 	{
-		$this->add_template( 'smugmugsilo_text', dirname( $this->get_file() ) . '/lib/formcontrols/smugmugsilo_text.php' );
-		$this->add_template( 'smugmugsilo_select', dirname( $this->get_file() ) . '/lib/formcontrols/smugmugsilo_select.php' );
+		$this->add_template( 'smugmugsilo_text', dirname( __FILE__ ) . '/lib/formcontrols/smugmugsilo_text.php' );
+		$this->add_template( 'smugmugsilo_select', dirname( __FILE__ ) . '/lib/formcontrols/smugmugsilo_select.php' );
+		$this->add_template( 'smugmugsilo_radio', dirname( __FILE__ ) . '/lib/formcontrols/smugmugsilo_radio.php' );
 
 		$user = User::identify();
 		$token = $user->info->smugmugsilo__token;
@@ -135,38 +136,49 @@ class SmugMugSilo extends Plugin implements MediaSilo
 		$imgSizes = array( 'Ti' => _t( 'Tiny' ), 'Th' => _t( 'Thumbnail' ), 'S' => _t( 'Small' ), 'M' => _t( 'Medium' ), 'L' => _t( 'Large (if available)' ), 'XL' => _t( 'XLarge (if available)' ), 'X2' => _t( 'X2Large (if available)' ), 'X3' => _t( 'X3Large (if available)' ), 'O' => _t( 'Original (if available)' ), 'Custom' => _t( 'Custom (Longest edge in px)' ) );
 
 		$ui = new FormUI( strtolower( __CLASS__ ) );
-		$ui->append( 'select', 'image_size','user:smugmugsilo__image_size', _t( 'Default size for images in Posts:' ) );
-			$ui->image_size->template = 'smugmugsilo_select';
-		$ui->append( 'text', 'custom_size', 'user:smugmugsilo__custom_size', _t( 'Custom Size of Longest Edge (px):' ), 'smugmugsilo_text' );
+		$ui->append( 'fieldset', 'pfs', _t( 'Photo Options: ' ) );
+		$ui->pfs->append( 'select', 'image_size','user:smugmugsilo__image_size', _t( 'Default size for images in Posts:' ) );
+			$ui->pfs->image_size->template = 'smugmugsilo_select';
+		$ui->pfs->append( 'text', 'custom_size', 'user:smugmugsilo__custom_size', _t( 'Custom Size of Longest Edge (px):' ), 'smugmugsilo_text' );
 		if ( $imageSize != 'Custom' ) {
-			$ui->custom_size->class = 'formcontrol hidden';
+			$ui->pfs->custom_size->class = 'formcontrol hidden';
 		}
-		$ui->image_size->options = $imgSizes;
+		$ui->pfs->image_size->options = $imgSizes;
 
 		$link_to_array = array (
 								'nothing' => _t( 'Nothing'),
 								'image' => _t( 'Larger Image'),
 								'smugmug' => _t( 'SmugMug Gallery' )
 								);
-		/* TODO: Coming soon
-		if ( Plugins::is_loaded( 'SmugGal' ) ) {
-			$link_to_array['smuggal'] = _t( 'SmugGal Gallery' );
-		} */
-
-		$ui->append( 'select', 'link_to', 'user:smugmugsilo__link_to', _t( 'Link to:' ) );
-			$ui->link_to->options = $link_to_array;
-			$ui->link_to->template = 'smugmugsilo_select';
-		$ui->append( 'select', 'link_to_size', 'user:smugmugsilo__link_to_size', _t( 'Link to Size:' ) );
+		
+		$ui->pfs->append( 'select', 'link_to', 'user:smugmugsilo__link_to', _t( 'Link to:' ) );
+			$ui->pfs->link_to->options = $link_to_array;
+			$ui->pfs->link_to->template = 'smugmugsilo_select';
+		$ui->pfs->append( 'select', 'link_to_size', 'user:smugmugsilo__link_to_size', _t( 'Link to Size:' ) );
 			unset($imgSizes['Custom']);	// Temporarily remove the "Custom" Option as we don't use it yet
-			$ui->link_to_size->options = $imgSizes;
-			$ui->link_to_size->template = 'smugmugsilo_select';
+			$ui->pfs->link_to_size->options = $imgSizes;
+			$ui->pfs->link_to_size->template = 'smugmugsilo_select';
 		if ($user->info->smugmugsilo__link_to != 'image') {
-			$ui->link_to_size->class = 'formcontrol hidden';
+			$ui->pfs->link_to_size->class = 'formcontrol hidden';
 		}
-		$ui->append( 'text', 'link_to_custom_size', 'user:smugmugsilo__link_to_custom_size', _t( 'Custom Size of Longest Edge (px):' ), 'smugmugsilo_text' );
-		if ( $ui->smugmugsilo__link_to_size != 'Custom' ) {
-			$ui->link_to_custom_size->class = 'formcontrol hidden';
+		$ui->pfs->append( 'text', 'link_to_custom_size', 'user:smugmugsilo__link_to_custom_size', _t( 'Custom Size of Longest Edge (px):' ), 'smugmugsilo_text' );
+		if ( $ui->pfs->smugmugsilo__link_to_size != 'Custom' ) {
+			$ui->pfs->link_to_custom_size->class = 'formcontrol hidden';
 		}
+		
+		/* Add Video config support
+			<iframe frameborder="0" scrolling="no" width="425" height="240" src="http://api.smugmug.com/services/embed/377930419_dgxvY?width=425&height=240&noshare&nohome&nohd&sb&fs&undefined"></iframe>		 
+		 */
+		$ui->append( 'fieldset', 'vfs', _t( 'Video Options: ' ) );
+		$ui->vfs->append( 'radio', 'show_logo', 'user:smugmugsilo__show_logo', _t( 'Show Logo? ' ), array( '' => 'Yes', 'nologo' => 'No' ), 'smugmugsilo_radio' );
+		$ui->vfs->append( 'radio', 'share_btn', 'user:smugmugsilo__share_btn', _t( 'Show Share button? ' ), array( '' => 'Yes', 'noshare' => 'No' ), 'smugmugsilo_radio' );
+		$ui->vfs->append( 'radio', 'home_btn', 'user:smugmugsilo__home_btn', _t( 'Show Home button? ' ), array( '' => 'Yes', 'nohome' => 'No' ), 'smugmugsilo_radio' );
+		$ui->vfs->append( 'radio', 'hd_btn', 'user:smugmugsilo__hd_btn', _t( 'Show HD button? ' ), array( '' => 'Yes', 'nohd' => 'No' ), 'smugmugsilo_radio' );
+		$ui->vfs->append( 'radio', 'stretch_btn', 'user:smugmugsilo__stretch_btn', _t( 'Show Stretch button? ' ), array( '' => 'Yes', 'sb' => 'No' ), 'smugmugsilo_radio' );
+		$ui->vfs->append( 'radio', 'stretch', 'user:smugmugsilo__stretch', _t( 'Stretch? ' ), array( '' => 'Yes', 'fs' => 'No' ), 'smugmugsilo_radio' );
+
+
+
 		$ui->append( 'submit', 'save', _t( 'Save' ) );
 		$ui->on_success( array( $this, 'save_config_msg' ) );
 		$ui->out();
