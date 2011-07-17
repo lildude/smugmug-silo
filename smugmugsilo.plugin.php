@@ -166,10 +166,9 @@ class SmugMugSilo extends Plugin implements MediaSilo
 			$ui->pfs->link_to_custom_size->class = 'formcontrol hidden';
 		}
 		
-		/* Add Video config support
-			<iframe frameborder="0" scrolling="no" width="425" height="240" src="http://api.smugmug.com/services/embed/377930419_dgxvY?width=425&height=240&noshare&nohome&nohd&sb&fs&undefined"></iframe>		 
-		 */
+		/* Add Video config support */
 		$ui->append( 'fieldset', 'vfs', _t( 'Video Options: ' ) );
+		$ui->vfs->append( 'text', 'vid_max_width', 'user:smugmugsilo__vid_max_width', _t( 'Max Video Width (px):' ), 'smugmugsilo_text' );
 		$ui->vfs->append( 'radio', 'show_logo', 'user:smugmugsilo__show_logo', _t( 'Show Logo? ' ), array( '' => 'Yes', 'nologo' => 'No' ), 'smugmugsilo_radio' );
 		$ui->vfs->append( 'radio', 'share_btn', 'user:smugmugsilo__share_btn', _t( 'Show Share button? ' ), array( '' => 'Yes', 'noshare' => 'No' ), 'smugmugsilo_radio' );
 		$ui->vfs->append( 'radio', 'home_btn', 'user:smugmugsilo__home_btn', _t( 'Show Home button? ' ), array( '' => 'Yes', 'nohome' => 'No' ), 'smugmugsilo_radio' );
@@ -219,6 +218,11 @@ class SmugMugSilo extends Plugin implements MediaSilo
 			
 		    $nickName = $user->info->smugmugsilo__nickName;
 			$lockicon = URL::get_from_filesystem( __FILE__ ) . '/lib/imgs/lock.png';
+			
+			$vOpts = array( $user->info->smugmugsilo__show_logo, $user->info->smugmugsilo__share_btn, $user->info->smugmugsilo__home_btn, $user->info->smugmugsilo__hd_btn, $user->info->smugmugsilo__stretch_btn, $user->info->smugmugsilo__stretch );
+			$videoOpts = ( count( $vOpts ) > 0 ) ? '&' . implode( '&', $vOpts ) : '';
+			$vidWidth = $user->info->smugmugsilo__vid_max_width;
+			
 
 		    echo <<< SMUGMUG_ENTRY_CSS_1
 		    <script type="text/javascript">
@@ -250,14 +254,30 @@ class SmugMugSilo extends Plugin implements MediaSilo
 			    });
 
 				// We Only show 5 buttons as I doubt anyone will be inserting larger images into posts.
-			    habari.media.output.smugmug = {
+			    habari.media.output.smugmugimg = {
 				    Ti: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.TinyURL, 'Ti');},
 				    Th: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.ThumbURL, 'Th');},
 				    S: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.SmallURL, 'S');},
 				    M: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.MediumURL, 'M');},
 				    L: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.LargeURL, 'L');}
 			    }
+						
+				habari.media.output.smugmugvid = {
+					Embed_Video: function(fileindex, fileobj) {insert_smugmug_video(fileindex, fileobj);}
+				}
 
+				function insert_smugmug_video(fileindex, fileobj) {
+					var ratio = fileobj.Width/fileobj.Height;
+					if ( fileobj.Width > 400 ) {
+						var vidWidth = {$vidWidth};
+						var vidHeight = Math.ceil(vidWidth/ratio);
+					} else {
+						var vidWidth = fileobj.Width;
+						var vidHeight = fileobj.Height;
+					}
+					habari.editor.insertSelection('<iframe frameborder="0" scrolling="no" width="'+vidWidth+'" height="'+vidHeight+'" src="http://api.smugmug.com/services/embed/'+fileobj.id+'_'+fileobj.Key+'?width='+vidWidth+'&height='+vidHeight+'{$videoOpts}"></iframe>');
+				}
+							
 				function insert_smugmug_photo(fileindex, fileobj, filesizeURL, size) {
 					ratio = fileobj.Width/fileobj.Height;
 
@@ -324,23 +344,27 @@ switch ($user->info->smugmugsilo__link_to) {
 	case 'smugmug':
 		echo "habari.editor.insertSelection('<a href=\"' + fileobj.AlbumURL + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" \/><\/a>');";
 	break;
-	case 'smuggal': // TODO: Coming one day
-		$smuggalOpts = Options::get('smuggal__options');
-		$url_root = $smuggalOpts['url_root'];
-		echo "habari.editor.insertSelection('<a href=\"{$url_root}/' + fileobj.NiceName + '#' + fileobj.id + '_' + fileobj.Key + '\"><img src=\"' + filesizeURL + '\" alt=\"' + fileobj.id + '\" title=\"'+ fileobj.Caption + '\" width=\"' + dimensions[(size)][0] + '\" height=\"'+dimensions[(size)][1]+'\" /></a>');";
-	break;
 }
 
 echo <<< SMUGMUG_ENTRY_CSS_2
 
 			    }
 
-			    habari.media.preview.smugmug = function(fileindex, fileobj) {
+			    habari.media.preview.smugmugimg = function(fileindex, fileobj) {
 				    out = '<div class="mediatitle" title="'+ fileobj.Caption +'">';
 				    if (fileobj.Hidden == 1) {
 					    out += '<span class="hidden_img"><\/span>';	/* This is a bit of a nasty fudge, but it gets the job done. */
 				    }
 				    out += '<a href="' + fileobj.AlbumURL + '" class="medialink" target="_blank" title="Go to gallery page on SmugMug">media<\/a>' + fileobj.TruncTitle + '<\/div><img src="' + fileobj.ThumbURL + '" \/>';
+				    return out;
+			    }
+				
+				habari.media.preview.smugmugvid = function(fileindex, fileobj) {
+				    out = '<div class="mediatitle" title="'+ fileobj.Caption +'">';
+				    if (fileobj.Hidden == 1) {
+					    out += '<span class="hidden_img"><\/span>';	/* This is a bit of a nasty fudge, but it gets the job done. */
+				    }
+				    out += '<a href="' + fileobj.AlbumURL + '" class="medialink" target="_blank" title="Go to gallery page on SmugMug">media<\/a>' + fileobj.TruncTitle + '<\/div><img src="' + fileobj.ThumbURL + '" \/><div class="playBtn"></div>';
 				    return out;
 			    }
 		    </script>
@@ -626,7 +650,7 @@ UPLOAD_FORM;
 		$token = User::identify()->info->smugmugsilo__token;
 		$user  = User::identify()->info->smugmugsilo__nickName;
 		$this->smug->setToken( "id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}" );
-		$img_extras = 'FileName,Hidden,Caption,Format,Album,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,Width,Height'; // Grab only the options we need to keep the response small
+		$img_extras = 'FileName,Hidden,Caption,Format,Album,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,Width,Height,Video320URL,Video640URL,Video960URL,Video1280URL,Video1920URL'; // Grab only the options we need to keep the response small
 		$results = array();
 		$section = strtok( $path, '/' );
 
@@ -671,7 +695,7 @@ UPLOAD_FORM;
 							}
 
 							unset( $props['FileName'] );
-							$props['filetype'] = 'smugmug';
+							$props['filetype'] = ( isset( $props['Video320URL'] ) || isset( $props['Video640URL'] ) || isset( $props['Video960URL'] ) || isset( $props['Video1280URL'] ) || isset( $props['Video1920URL'] ) ) ? 'smugmugvid' : 'smugmugimg';
 							$results[] = new MediaAsset(
 												self::SILO_NAME . '/recentPhotos/' . $id,
 												false,
@@ -701,7 +725,7 @@ UPLOAD_FORM;
 						foreach( $photos['Images'] as $photo ) {
 							foreach( $photo as $name => $value ) {
 								$props[$name] = (string) $value;
-								$props['filetype'] = 'smugmug';
+								$props['filetype'] = ( isset( $props['Video320URL'] ) || isset( $props['Video640URL'] ) || isset( $props['Video960URL'] ) || isset( $props['Video1280URL'] ) || isset( $props['Video1920URL'] ) ) ? 'smugmugvid' : 'smugmugimg';
 								$props['AlbumURL'] = 'http://'.$user.'.smugmug.com/gallery/'.$galmeta[0].'_'.$galmeta[1].'#'.$photo['id'].'_'.$photo['Key'];
 							}
 							if ($props['Caption'] != '') {
@@ -777,7 +801,7 @@ UPLOAD_FORM;
 						foreach( $photos['Images'] as $photo ) {
 							foreach( $photo as $name => $value ) {
 								$props[$name] = (string) $value;
-								$props['filetype'] = 'smugmug';
+								$props['filetype'] = ( isset( $props['Video320URL'] ) || isset( $props['Video640URL'] ) || isset( $props['Video960URL'] ) || isset( $props['Video1280URL'] ) || isset( $props['Video1920URL'] ) ) ? 'smugmugvid' : 'smugmugimg';
 								$props['AlbumURL'] = 'http://'.$user.'.smugmug.com/gallery/'.$galmeta[0].'_'.$galmeta[1].'#'.$photo['id'].'_'.$photo['Key'];
 							}
 							if ($props['Caption'] != '') {
