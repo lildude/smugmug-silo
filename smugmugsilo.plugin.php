@@ -226,27 +226,19 @@ class SmugMugSilo extends Plugin implements MediaSilo
 
 		    echo <<< SMUGMUG_ENTRY_CSS_1
 		    <script type="text/javascript">
-				/* Get the silo id from the href of the link and add class to that siloid
-				 * We don't need this as of r3286, but keeping this here just in case someone comes along with an earlier rev
-				 */
-				var siloid = $("a:contains('SmugMug')").attr("href");
-				var silo = $(siloid).find('div.splitterinside');
-				if ($(silo).hasClass('silo_smugmug')) {
-				  true;
-				} else {
-				  $(silo).attr('id', 'silo_smugmug');
-				}
-				$(siloid).addClass('smugmug');
-
 			    /* This is a bit of a fudge to over-write the dblclick functionality.
 			     * We introduce our own dblclick which inserts the default image size as defined by the user.
 				 *
 			     * I use mouseover here because media.js, which sets the initial dblclick, is reloaded each time
 			     * the user clicks on a "dir" entry, but this code isn't.
 				 */
-			    $('.smugmug .mediaphotos').bind('mouseover', function() {
-					    $('.smugmug .media').unbind('dblclick');
-					    $('.smugmug .media').dblclick(function(){
+			    $('#silo_smugmug .mediaphotos').bind('mouseover', function() {
+						// We only want to change the default behaviour for phohts, not videos
+						var photos = $('#silo_smugmug .media').filter(function() {
+							return $(this).children('ul.smugmugvid').length == 0;
+						});
+					    photos.unbind('dblclick');
+					    photos.dblclick(function(){
 							var id = $('.foroutput', this).html();
 							insert_smugmug_photo(id, habari.media.assets[id], "Default", "{$size}");
 							return false;
@@ -261,23 +253,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 				    M: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.MediumURL, 'M');},
 				    L: function(fileindex, fileobj) {insert_smugmug_photo(fileindex, fileobj, fileobj.LargeURL, 'L');}
 			    }
-						
-				habari.media.output.smugmugvid = {
-					Embed_Video: function(fileindex, fileobj) {insert_smugmug_video(fileindex, fileobj);}
-				}
-
-				function insert_smugmug_video(fileindex, fileobj) {
-					var ratio = fileobj.Width/fileobj.Height;
-					if ( fileobj.Width > 400 ) {
-						var vidWidth = {$vidWidth};
-						var vidHeight = Math.ceil(vidWidth/ratio);
-					} else {
-						var vidWidth = fileobj.Width;
-						var vidHeight = fileobj.Height;
-					}
-					habari.editor.insertSelection('<iframe frameborder="0" scrolling="no" width="'+vidWidth+'" height="'+vidHeight+'" src="http://api.smugmug.com/services/embed/'+fileobj.id+'_'+fileobj.Key+'?width='+vidWidth+'&height='+vidHeight+'{$videoOpts}"></iframe>');
-				}
-							
+					
 				function insert_smugmug_photo(fileindex, fileobj, filesizeURL, size) {
 					ratio = fileobj.Width/fileobj.Height;
 
@@ -350,6 +326,22 @@ echo <<< SMUGMUG_ENTRY_CSS_2
 
 			    }
 
+				habari.media.output.smugmugvid = {
+					Embed_Video: function(fileindex, fileobj) {insert_smugmug_video(fileindex, fileobj);}
+				}
+
+				function insert_smugmug_video(fileindex, fileobj) {
+					var ratio = fileobj.Width/fileobj.Height;
+					if ( fileobj.Width > 400 ) {
+						var vidWidth = {$vidWidth};
+						var vidHeight = Math.ceil(vidWidth/ratio);
+					} else {
+						var vidWidth = fileobj.Width;
+						var vidHeight = fileobj.Height;
+					}
+					habari.editor.insertSelection('<iframe frameborder="0" scrolling="no" width="'+vidWidth+'" height="'+vidHeight+'" src="http://api.smugmug.com/services/embed/'+fileobj.id+'_'+fileobj.Key+'?width='+vidWidth+'&height='+vidHeight+'{$videoOpts}"></iframe>');
+				}
+				
 			    habari.media.preview.smugmugimg = function(fileindex, fileobj) {
 				    out = '<div class="mediatitle" title="'+ fileobj.Caption +'">';
 				    if (fileobj.Hidden == 1) {
