@@ -197,7 +197,7 @@ class SmugMugSilo extends Plugin implements MediaSilo
 	public function action_admin_header( $theme )
 	{
 		if ( Controller::get_var( 'configure' ) == $this->plugin_id || Controller::get_var( 'page' ) == 'publish' ) {
-			Stack::add( 'admin_stylesheet', array( URL::get_from_filesystem( __FILE__ ) . '/lib/css/admin.css', 'screen'), 'admin-css' );
+			Stack::add( 'admin_stylesheet', array( URL::get_from_filesystem( __FILE__ ) . '/lib/css/admin.css', 'screen'), 'smugmug_silo_admin_css' );
 		}
 	}
 
