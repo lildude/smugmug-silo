@@ -4,7 +4,7 @@
     <license url="http://www.apache.org/licenses/LICENSE-2.0.html">Apache Software License 2.0</license>
     <author url="http://colinseymour.co.uk">Colin Seymour</author>
     <copyright>Copyright 2010</copyright>
-    <version>1.2</version>
+    <version>1.3</version>
     <url>http://lildude.co.uk/projects/smugmug-media-silo-plugin/</url>
     <downloadurl>http://lildude.co.uk/projects/smugmug-media-silo-plugin/</downloadurl>
     <description><![CDATA[Provides a silo to access your SmugMug photos making it easy to include images into posts and pages, and also upload images directly to SmugMug from within Habari.]]></description>

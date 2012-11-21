@@ -97,9 +97,3 @@ your images, you will need to do so from within SmugMug's own administration con
 Each image in the silo has a title associated with it. This will either be up to the first
 23 characters of the first line of the caption (you can hover over the title to
 view the full caption) or the image's filename.
-
-
-REVISION HISTORY
-----------------
-
-* 1.0		- Initial release.

@@ -221,7 +221,8 @@ class SmugMugSilo extends Plugin implements MediaSilo
 			
 			$vOpts = array( $user->info->smugmugsilo__show_logo, $user->info->smugmugsilo__share_btn, $user->info->smugmugsilo__home_btn, $user->info->smugmugsilo__hd_btn, $user->info->smugmugsilo__stretch_btn, $user->info->smugmugsilo__stretch );
 			$videoOpts = ( count( $vOpts ) > 0 ) ? '&' . implode( '&', $vOpts ) : '';
-			$vidWidth = $user->info->smugmugsilo__vid_max_width;
+			$vidWidth = ( $user->info->smugmugsilo__vid_max_width ) ? $user->info->smugmugsilo__vid_max_width : 640;
+			
 			
 
 		    echo <<< SMUGMUG_ENTRY_CSS_1
@@ -347,7 +348,7 @@ echo <<< SMUGMUG_ENTRY_CSS_2
 				    if (fileobj.Hidden == 1) {
 					    out += '<span class="hidden_img"><\/span>';	/* This is a bit of a nasty fudge, but it gets the job done. */
 				    }
-				    out += '<a href="' + fileobj.AlbumURL + '" class="medialink" target="_blank" title="Go to gallery page on SmugMug">media<\/a>' + fileobj.TruncTitle + '<\/div><img src="' + fileobj.ThumbURL + '" \/>';
+				    out += '<a href="' + fileobj.AlbumURL + '" class="medialink" target="_blank" title="Go to gallery page on SmugMug">media<\/a>' + fileobj.TruncTitle + '<\/div><div class="mediathumb"><img src="' + fileobj.ThumbURL + '" \/></div>';
 				    return out;
 			    }
 				
@@ -356,7 +357,7 @@ echo <<< SMUGMUG_ENTRY_CSS_2
 				    if (fileobj.Hidden == 1) {
 					    out += '<span class="hidden_img"><\/span>';	/* This is a bit of a nasty fudge, but it gets the job done. */
 				    }
-				    out += '<a href="' + fileobj.AlbumURL + '" class="medialink" target="_blank" title="Go to gallery page on SmugMug">media<\/a>' + fileobj.TruncTitle + '<\/div><img src="' + fileobj.ThumbURL + '" \/><div class="playBtn"></div>';
+				    out += '<a href="' + fileobj.AlbumURL + '" class="medialink" target="_blank" title="Go to gallery page on SmugMug">media<\/a>' + fileobj.TruncTitle + '<\/div><div class="mediathumb"><img src="' + fileobj.ThumbURL + '" \/></div><div class="playBtn"></div>';
 				    return out;
 			    }
 		    </script>
@@ -642,7 +643,7 @@ UPLOAD_FORM;
 		$token = User::identify()->info->smugmugsilo__token;
 		$user  = User::identify()->info->smugmugsilo__nickName;
 		$this->smug->setToken( "id={$token['Token']['id']}", "Secret={$token['Token']['Secret']}" );
-		$img_extras = 'FileName,Hidden,Caption,Format,Album,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,Width,Height,Video320URL,Video640URL,Video960URL,Video1280URL,Video1920URL'; // Grab only the options we need to keep the response small
+		$img_extras = 'FileName,Hidden,Caption,Format,TinyURL,SmallURL,ThumbURL,MediumURL,LargeURL,XLargeURL,X2LargeURL,X3LargeURL,OriginalURL,Width,Height,Video320URL,Video640URL,Video960URL,Video1280URL,Video1920URL'; // Grab only the options we need to keep the response small
 		$results = array();
 		$section = strtok( $path, '/' );
 
@@ -661,13 +662,15 @@ UPLOAD_FORM;
 						$i++;
 					}
 					foreach( $ids as $photoURL ) {
-						$idKey = explode( '#', $photoURL );
-						list( $id, $key ) = explode( '_', $idKey[1] );
-						$info = $this->smug->images_getInfo( "ImageID={$id}",
-															 "ImageKey={$key}",
+						$url_parts = parse_url( $photoURL );
+						// replace the ! at the beginning of the fragment
+						$fragment = str_replace('!', '', $url_parts['fragment']);
+						parse_str($fragment);
+						$info = $this->smug->images_getInfo( "ImageID={$i}",
+															 "ImageKey={$k}",
 															 "Extras={$img_extras}" );
 						$this->status = $this->smug->mode;
-						$props = array( 'TruncTitle' => $id, 'FileName' => '&nbsp;', 'Hidden' => 0 );
+						$props = array( 'TruncTitle' => $i, 'FileName' => '&nbsp;', 'Hidden' => 0 );
 						foreach( $info as $name => $value ) {
 							if ($name == 'Caption') {
 								if ($value != '') {
@@ -689,7 +692,7 @@ UPLOAD_FORM;
 							unset( $props['FileName'] );
 							$props['filetype'] = ( isset( $props['Video320URL'] ) || isset( $props['Video640URL'] ) || isset( $props['Video960URL'] ) || isset( $props['Video1280URL'] ) || isset( $props['Video1920URL'] ) ) ? 'smugmugvid' : 'smugmugimg';
 							$results[] = new MediaAsset(
-												self::SILO_NAME . '/recentPhotos/' . $id,
+												self::SILO_NAME . '/recentPhotos/' . $i,
 												false,
 												$props
 												);
@@ -807,11 +810,11 @@ UPLOAD_FORM;
 							$props['NiceName'] = $galInfo['NiceName'];
 							$props['SquareThumbs'] = ( array_key_exists('SquareThumbs', $galInfo ) ) ? $galInfo['SquareThumbs'] : false;
 							unset( $props['FileName'] );
-							$results[] = new MediaAsset(
-												self::SILO_NAME . '/photos/' . $photo['id'],
-												false,
-												$props
-												);
+							$results[] = new MediaAsset( 
+								self::SILO_NAME . '/photos/' . $photo['id'],
+								false,
+								$props
+								);
 						}
 						Cache::set( $cache_name, $results, self::CACHE_EXPIRY );
 					}
@@ -1073,7 +1076,13 @@ UPLOAD_FORM;
 								  "cache_dir=". HABARI_PATH . '/user/cache/',
 								  "cache_expire=".self::CACHE_EXPIRY );
 		
-		
+		// If this instance of Habari has a proxy, configured, configure phpSmug to use it too
+		$default = new stdClass();
+		$proxy = Config::get( 'proxy', $default );
+		if ( isset( $proxy->server ) ) {
+			$this->smug->setProxy( "server={$proxy->server}", "port={$proxy->port}", "username={$proxy->username}" , "password={$proxy->password}" );
+		}
+
 		// Call a method we know will succeed, so we can get the mode set
 		//$this->smug->reflection_getMethods();
 	}
